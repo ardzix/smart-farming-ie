@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import 'antd/dist/reset.css';
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* ... (style root, dark mode, body Anda yang lain) ... */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+
+/* === START: Custom Ant Design Menu Styling for Figma === */
+
+.ant-layout-sider .ant-menu-inline {
+    gap: 8px !important;
+    border-inline-end: none !important;
+    padding: 0 !important;
+}
+
+.ant-layout-sider .ant-menu-inline .ant-menu-item {
+    height: 40px !important;
+    line-height: 40px !important;
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+    padding-left: 24px !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+}
+
+.ant-layout-sider .ant-menu-inline .ant-menu-item:not(.ant-menu-item-selected) {
+    background-color: rgba(255, 255, 255, 0.00001) !important;
+    color: rgba(0, 0, 0, 0.85) !important;
+    padding-right: 24px !important;
+}
+.ant-layout-sider .ant-menu-inline .ant-menu-item:not(.ant-menu-item-selected) > .ant-menu-item-icon,
+.ant-layout-sider .ant-menu-inline .ant-menu-item:not(.ant-menu-item-selected) a {
+    color: rgba(0, 0, 0, 0.85) !important;
+}
+.ant-layout-sider .ant-menu-inline .ant-menu-item:not(.ant-menu-item-selected):hover {
+    background-color: #f0f0f0 !important;
+}
+
+/* Target item yang AKTIF */
+.ant-layout-sider .ant-menu-inline .ant-menu-item-selected {
+    background-color: #E6FFE6 !important;
+    color: #237804 !important;
+    /* --- INI KUNCINYA --- */
+    border-right: 3px solid #237804 !important;
+    /* --- ----------- --- */
+    padding-right: 21px !important;
+}
+.ant-layout-sider .ant-menu-inline .ant-menu-item-selected > .ant-menu-item-icon,
+.ant-layout-sider .ant-menu-inline .ant-menu-item-selected a,
+.ant-layout-sider .ant-menu-inline .ant-menu-item-selected a:hover {
+     color: #237804 !important;
+}
+.ant-layout-sider .ant-menu-inline .ant-menu-item-selected:hover {
+    background-color: #E6FFE6 !important;
+}
+
+/* Styling Ikon */
+.ant-layout-sider .ant-menu-inline .ant-menu-item .ant-menu-item-icon {
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    line-height: 1 !important;
+    margin-right: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0;
+}
+
+/* Styling Link (Label) */
+.ant-layout-sider .ant-menu-inline .ant-menu-item a {
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 14px !important;
+    line-height: 22px !important;
+    margin-left: 10px !important;
+    flex-grow: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ant-carousel .slick-dots {
+  bottom: 5px !important; /* pastikan muncul */
+  z-index: 10;
+}
+
+.ant-carousel .slick-dots li button {
+  background-color: #171717 !important; /* abu-abu muda */
+}
+
+.ant-carousel .slick-dots li.slick-active button {
+  background-color: #2563eb !important; /* biru aktif */
+}
+
+/* === END: Custom Ant Design Menu Styling === */
