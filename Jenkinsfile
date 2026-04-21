@@ -13,9 +13,9 @@ pipeline {
         VPS_HOST = '172.105.124.43'
         VPS_USER = 'root'
         VPS_APP_DIR = '/root/smart-farming-ie/be'
-        USE_DOCKER_CLOUD = 'false'
-        DOCKER_CLOUD_BUILDER_ENDPOINT = ''
-        DOCKER_CLOUD_BUILDER_NAME = 'arnatech-cloud-builder'
+        USE_DOCKER_CLOUD = 'true'
+        DOCKER_CLOUD_BUILDER_ENDPOINT = 'arnatechid/default'
+        DOCKER_CLOUD_BUILDER_NAME = 'arna-cloud-builder'
     }
 
     stages {
