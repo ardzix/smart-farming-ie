@@ -7,6 +7,7 @@ pipeline {
         DEPLOY_IMAGE_REPO = 'arnatechid/smart-farming-be'
         DOCKER_REGISTRY_CREDENTIALS = 'ard-dockerhub'
         BACKEND_ENV_CREDENTIALS = 'smart-farming-be-env'
+        SSO_PUBLIC_PEM_CREDENTIALS = 'sso_public_pem'
         SSH_CREDENTIALS = 'stag-arnatech-sa-01'
         STACK_NAME = 'smart-farming-be'
         REPLICAS = '1'
@@ -29,10 +30,12 @@ pipeline {
         stage('Inject Backend Environment') {
             steps {
                 withCredentials([
-                    file(credentialsId: env.BACKEND_ENV_CREDENTIALS, variable: 'ENV_FILE')
+                    file(credentialsId: env.BACKEND_ENV_CREDENTIALS, variable: 'ENV_FILE'),
+                    file(credentialsId: env.SSO_PUBLIC_PEM_CREDENTIALS, variable: 'PUBLIC_PEM_FILE')
                 ]) {
                     sh '''
                         cp "${ENV_FILE}" be/.env
+                        cp "${PUBLIC_PEM_FILE}" be/public.pem
                     '''
                 }
             }
@@ -174,6 +177,7 @@ pipeline {
                         echo "[INFO] Copying .env and supervisord config to VPS..."
                         scp -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no be/.env ${VPS_USER}@${VPS_HOST}:${VPS_APP_DIR}/.env
                         scp -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no be/supervisord.conf ${VPS_USER}@${VPS_HOST}:${VPS_APP_DIR}/supervisord.conf
+                        scp -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no be/public.pem ${VPS_USER}@${VPS_HOST}:${VPS_APP_DIR}/public.pem
 
                         echo "[INFO] Deploying service with rolling update..."
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} \
@@ -231,6 +235,7 @@ pipeline {
                                     --network "${NETWORK_NAME}" \
                                     --mount type=bind,src=${VPS_APP_DIR}/.env,dst=/app/.env,ro=true \
                                     --mount type=bind,src=${VPS_APP_DIR}/supervisord.conf,dst=/etc/supervisor/conf.d/supervisord.conf,ro=true \
+                                    --mount type=bind,src=${VPS_APP_DIR}/public.pem,dst=/app/public.pem,ro=true \
                                     --health-cmd "python -c 'import socket; s=socket.create_connection((\\\"127.0.0.1\\\",8000),3); s.close()'" \
                                     --health-interval 15s \
                                     --health-timeout 5s \
@@ -250,6 +255,8 @@ pipeline {
                                     "${TARGET_IMAGE}"
                             else
                                 echo "[INFO] Updating service ${STACK_NAME}..."
+                                docker service update "${STACK_NAME}" --mount-rm /app/authentication/keys >/dev/null 2>&1 || true
+                                docker service update "${STACK_NAME}" --mount-add type=bind,src=${VPS_APP_DIR}/public.pem,dst=/app/public.pem,ro=true >/dev/null 2>&1 || true
                                 docker service update "${STACK_NAME}" \
                                     --with-registry-auth \
                                     --detach=true \
