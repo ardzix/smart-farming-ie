@@ -159,7 +159,6 @@ pipeline {
                                     --network ${NETWORK_NAME} \
                                     --mount type=bind,src=${VPS_APP_DIR}/.env,dst=/app/.env,ro=true \
                                     --mount type=bind,src=${VPS_APP_DIR}/supervisord.conf,dst=/etc/supervisor/conf.d/supervisord.conf,ro=true \
-                                    --publish 8000:8000 \
                                     --health-cmd "python -c 'import socket; s=socket.create_connection((\\\"127.0.0.1\\\",8000),3); s.close()'" \
                                     --health-interval 15s \
                                     --health-timeout 5s \
@@ -179,6 +178,7 @@ pipeline {
                                     "\$DEPLOY_IMAGE"
                             else
                                 echo "[INFO] Updating service ${STACK_NAME}..."
+                                docker service update ${STACK_NAME} --publish-rm 8000 >/dev/null 2>&1 || true
                                 docker service update ${STACK_NAME} \
                                     --with-registry-auth \
                                     --image "\$DEPLOY_IMAGE" \
