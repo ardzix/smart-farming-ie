@@ -297,8 +297,7 @@ function FundingDetailContent() {
   const [form] = Form.useForm();
 
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role?.name || user?.role;
-  const canEdit = ['Admin', 'Superadmin'].includes(userRole);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.funding']);
 
   const { data: funding, isLoading: isLoadingFunding, isError, error } = useQuery({
     queryKey: ['funding', fundingId],

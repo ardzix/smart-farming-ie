@@ -77,7 +77,7 @@ export default function AdminLayout({ children }) {
     if (key === 'logout') handleLogout();
   };
 
-  const userRoleName = user?.role?.name || user?.role;
+  const userRoleName = user?.role || user?.roles?.[0] || (user?.is_owner ? 'Owner' : 'SSO User');
   const isOwner = isOwnerFn();
 
   const profileMenuItems = [

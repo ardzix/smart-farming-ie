@@ -8,11 +8,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import CustomUser, Role
-from .serializers import RegisterSerializer, UserSerializer, RoleSerializer
-from django.contrib.auth import authenticate
+from .models import CustomUser
+from .serializers import RegisterSerializer, UserSerializer
 from django.conf import settings
-from .permissions import IsSuperadmin, HasSSOPermission
+from .permissions import HasSSOPermission
 
 # --- Helper Functions ---
 def set_auth_cookies(response, refresh_token):
@@ -52,7 +51,10 @@ def set_user_cookie(response, user_data):
 # --- SSO JWT Decoder ---
 
 # Load RSA Public Key dari file
-_SSO_PUBLIC_KEY_PATH = os.path.join(os.path.dirname(__file__), 'public.pem')
+_SSO_PUBLIC_KEY_PATH = os.getenv(
+    'SSO_PUBLIC_KEY_PATH',
+    os.path.join(os.path.dirname(__file__), 'keys', 'public.pem')
+)
 try:
     with open(_SSO_PUBLIC_KEY_PATH, 'r') as f:
         SSO_PUBLIC_KEY = f.read()
@@ -114,19 +116,38 @@ def decode_sso_jwt(sso_token, refresh_token):
     }
 
 
-def build_user_data(user, role_name, sso_claims=None):
+def extract_primary_role_name(profile=None, sso_claims=None):
+    if sso_claims:
+        jwt_roles = sso_claims.get('roles', [])
+        if jwt_roles:
+            first_role = jwt_roles[0]
+            return first_role if isinstance(first_role, str) else first_role.get('name')
+
+    if profile:
+        profile_role = profile.get('role')
+        if isinstance(profile_role, dict):
+            return profile_role.get('name')
+        if profile_role:
+            return str(profile_role)
+
+    return None
+
+
+def build_user_data(user, role_name=None, sso_claims=None):
     """Buat dict user_data lengkap dengan SSO claims."""
     data = {
         'id': user.id,
         'username': user.username,
         'email': user.email,
         'role': role_name,
+        'roles': [],
         'permissions': [],
         'is_owner': False,
         'org_id': None,
         'org_name': None,
     }
     if sso_claims:
+        data['roles'] = sso_claims.get('roles', [])
         data['permissions'] = sso_claims.get('permissions', [])
         data['is_owner'] = sso_claims.get('is_owner', False)
         data['org_id'] = sso_claims.get('org_id')
@@ -134,10 +155,8 @@ def build_user_data(user, role_name, sso_claims=None):
         data['access'] = sso_claims.get('access')
         data['refresh'] = sso_claims.get('refresh')
 
-        # Jika ada roles dari JWT, gunakan role pertama
-        jwt_roles = sso_claims.get('roles', [])
-        if jwt_roles and not role_name:
-            data['role'] = jwt_roles[0] if isinstance(jwt_roles[0], str) else jwt_roles[0].get('name', role_name)
+        if not role_name:
+            data['role'] = extract_primary_role_name(sso_claims=sso_claims)
     return data
 
 
@@ -145,29 +164,17 @@ def build_user_data(user, role_name, sso_claims=None):
 
 def sync_user_from_sso_profile(profile, email):
     username = profile.get('username') or email.split('@')[0]
-    
-    # Synchronize Role
-    role_name = None
-    sso_role = profile.get('role')
-    if sso_role:
-        role_name_str = sso_role.get('name') if isinstance(sso_role, dict) else str(sso_role)
-        local_role, _ = Role.objects.get_or_create(name=role_name_str)
-        role_name = local_role.name
-        role_obj = local_role
-    else:
-        role_obj = None
 
     # Synchronize User
     user, created = CustomUser.objects.get_or_create(username=username, defaults={'email': email})
     if not created and user.email != email:
         user.email = email
-        
-    user.role = role_obj
+
     if profile.get('first_name'): user.first_name = profile.get('first_name')
     if profile.get('last_name'): user.last_name = profile.get('last_name')
     user.save()
-    
-    return user, role_name
+
+    return user
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -218,15 +225,18 @@ def google_login_sso(request):
             
         profile = me_resp.json()
         email = profile.get('email', '')
-        user, role_name = sync_user_from_sso_profile(profile, email)
+        user = sync_user_from_sso_profile(profile, email)
         
         # 4. Generate Local Session (JWT)
         refresh = RefreshToken.for_user(user)
-        user_data = build_user_data(user, role_name, sso_claims)
+        user_data = build_user_data(user, extract_primary_role_name(profile, sso_claims), sso_claims)
         
         # Simpan claim ke Django Session (diperlukan untuk HasSSOPermission)
+        request.session['sso_roles'] = sso_claims.get('roles', [])
         request.session['sso_permissions'] = sso_claims.get('permissions', [])
         request.session['sso_is_owner'] = sso_claims.get('is_owner', False)
+        request.session['sso_org_id'] = sso_claims.get('org_id')
+        request.session['sso_org_name'] = sso_claims.get('org_name')
         request.session['sso_access_token'] = sso_jwt
         
         response = Response({'user': user_data})
@@ -280,14 +290,17 @@ def login_view(request):
         
         if me_resp.status_code == 200:
             profile = me_resp.json()
-            user, role_name = sync_user_from_sso_profile(profile, email)
+            user = sync_user_from_sso_profile(profile, email)
             
             refresh = RefreshToken.for_user(user)
-            user_data = build_user_data(user, role_name, sso_claims)
+            user_data = build_user_data(user, extract_primary_role_name(profile, sso_claims), sso_claims)
             
             # Simpan claim ke Django Session
+            request.session['sso_roles'] = sso_claims.get('roles', [])
             request.session['sso_permissions'] = sso_claims.get('permissions', [])
             request.session['sso_is_owner'] = sso_claims.get('is_owner', False)
+            request.session['sso_org_id'] = sso_claims.get('org_id')
+            request.session['sso_org_name'] = sso_claims.get('org_name')
             request.session['sso_access_token'] = sso_access
             
             response = Response({'user': user_data})
@@ -426,9 +439,15 @@ def refresh_view(request):
         user = CustomUser.objects.get(id=token['user_id'])
         new_refresh_token = RefreshToken.for_user(user)
         
-        role_name = user.role.name if user.role else None
-        
-        user_data = build_user_data(user, role_name)
+        sso_claims = {
+            'roles': request.session.get('sso_roles', []),
+            'permissions': request.session.get('sso_permissions', []),
+            'is_owner': request.session.get('sso_is_owner', False),
+            'org_id': request.session.get('sso_org_id'),
+            'org_name': request.session.get('sso_org_name'),
+        }
+
+        user_data = build_user_data(user, extract_primary_role_name(sso_claims=sso_claims), sso_claims)
         
         response = Response({
             'access': str(new_refresh_token.access_token),
@@ -519,13 +538,16 @@ def verify_mfa_login_view(request):
         if me_resp.status_code == 200:
             profile = me_resp.json()
             user_email = profile.get('email') or email
-            user, role_name = sync_user_from_sso_profile(profile, user_email)
+            user = sync_user_from_sso_profile(profile, user_email)
             
             refresh = RefreshToken.for_user(user)
-            user_data = build_user_data(user, role_name, sso_claims)
+            user_data = build_user_data(user, extract_primary_role_name(profile, sso_claims), sso_claims)
             
+            request.session['sso_roles'] = sso_claims.get('roles', [])
             request.session['sso_permissions'] = sso_claims.get('permissions', [])
             request.session['sso_is_owner'] = sso_claims.get('is_owner', False)
+            request.session['sso_org_id'] = sso_claims.get('org_id')
+            request.session['sso_org_name'] = sso_claims.get('org_name')
             request.session['sso_access_token'] = sso_access
             
             response = Response({'user': user_data})
@@ -715,13 +737,10 @@ def passkeys_delete(request, id):
     except requests.RequestException as e:
         return Response({'error': 'SSO Integration Error', 'details': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-# --- Role Management (PENTING: View Baru) ---
 @api_view(['GET'])
 @permission_classes([HasSSOPermission('users')])
 def role_list(request):
-    roles = Role.objects.all()
-    serializer = RoleSerializer(roles, many=True)
-    return Response(serializer.data)
+    return Response([])
 
 # --- User Management ---
 @api_view(['GET', 'POST'])

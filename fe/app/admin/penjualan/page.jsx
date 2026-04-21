@@ -334,8 +334,7 @@ function SalesManagementContent() {
   const [editingItem, setEditingItem] = useState(null);
 
   const user = useAuthStore((state) => state.user);
-  const role = user?.role?.name || user?.role;
-  const canEdit = ['Superadmin', 'Admin', 'Operator'].includes(role);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.sales']);
 
   const { data: salesData, isLoading: loadingSales, isError, error } = useQuery({
     queryKey: ['sales', { search: searchTerm }],

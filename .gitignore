@@ -44,6 +44,13 @@ coverage/
 .env
 .env.*
 !.env.example
+be/.env
+be/.env.*
+!be/.env.example
+
+# Keys / certificates
+*.pem
+be/authentication/keys/
 
 # Build artifacts / temp
 tmp/

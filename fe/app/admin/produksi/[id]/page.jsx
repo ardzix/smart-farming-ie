@@ -84,8 +84,7 @@ function ProductionDetailContent() {
   const productionId = params.id;
 
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role?.name || user?.role;
-  const canEdit = ['Admin', 'Superadmin', 'Operator'].includes(userRole);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.production']);
 
   const { data: production, isLoading, isError, error } = useQuery({
     queryKey: ['production', productionId],

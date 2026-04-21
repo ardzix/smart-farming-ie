@@ -289,7 +289,7 @@ function DashboardContent() {
 
   // Permission-Based Access
   const isOwner = isOwnerFn();
-  const userRole = user?.role?.name || user?.role;
+  const userRole = user?.role || user?.roles?.[0] || (isOwner ? 'Owner' : 'SSO User');
   const userPermissions = user?.permissions || [];
   
   // Tentukan tampilan dashboard berdasarkan permissions

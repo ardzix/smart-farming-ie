@@ -559,8 +559,7 @@ function ProductionManagementContent() {
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role?.name || user?.role;
-  const canEdit = ['Admin', 'Superadmin', 'Operator'].includes(userRole);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.production']);
   
   const { data: products, isLoading: isLoadingProducts } = useQuery({ queryKey: ['products'], queryFn: getProducts });
   const { data: assets, isLoading: isLoadingAssets } = useQuery({ queryKey: ['assets'], queryFn: getAssets });

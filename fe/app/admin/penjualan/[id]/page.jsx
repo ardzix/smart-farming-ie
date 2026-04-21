@@ -40,8 +40,7 @@ function SalesDetailContent() {
   const queryClient = useQueryClient();
 
   const user = useAuthStore((state) => state.user);
-  const role = user?.role?.name || user?.role;
-  const canEdit = ['Superadmin', 'Admin', 'Operator'].includes(role);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.sales']);
 
   // [FIX] Menggunakan fungsi getSale yang benar (sudah include /api/)
   const { data: sale, isLoading, isError } = useQuery({

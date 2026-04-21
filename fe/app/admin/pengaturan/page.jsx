@@ -41,7 +41,7 @@ function SettingsContent() {
   const [form] = Form.useForm();
   const user = useAuthStore((state) => state.user);
   
-  const canEdit = user?.role === 'Superadmin' || user?.role?.name === 'Superadmin';
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.site_settings']);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],

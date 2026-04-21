@@ -255,9 +255,11 @@ const ExecutiveDashboard = ({ dashboardData }) => {
 
 function AdminDashboardContent() {
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role?.name || user?.role;
-  const isOperator = userRole === 'Operator';
-  const isInvestor = userRole === 'Investor';
+  const hasAnyPermission = useAuthStore((state) => state.hasAnyPermission);
+  const isOwner = useAuthStore((state) => state.isOwner)();
+  const canViewFinancials = isOwner || hasAnyPermission(['view.cashflow', 'manage.cashflow', 'view.financial', 'manage.financial']);
+  const canManageOperations = isOwner || hasAnyPermission(['manage.asset', 'manage.production', 'manage.expense', 'manage.sales']);
+  const canViewPortfolio = !canViewFinancials && !canManageOperations && hasAnyPermission(['view.asset', 'view.funding', 'view.cashflow']);
 
   const { data: rawData, isLoading, isError } = useQuery({
     queryKey: ['dashboard'],
@@ -283,9 +285,9 @@ function AdminDashboardContent() {
 
   return (
     <div style={{ padding: '0px' }}>
-      {isOperator ? (
+      {canManageOperations ? (
          <OperatorDashboard dashboardData={dashboardData} user={user} />
-      ) : isInvestor ? (
+      ) : canViewPortfolio ? (
          <InvestorDashboard dashboardData={dashboardData} />
       ) : (
          <ExecutiveDashboard dashboardData={dashboardData} />
@@ -296,7 +298,7 @@ function AdminDashboardContent() {
 
 export default function AdminDashboardPage() {
   return (
-    <ProtectedRoute roles={['Superadmin', 'Admin', 'Operator', 'Investor', 'Viewer']}>
+    <ProtectedRoute>
       <AdminDashboardContent />
     </ProtectedRoute>
   );

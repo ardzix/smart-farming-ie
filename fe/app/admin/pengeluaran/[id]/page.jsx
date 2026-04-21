@@ -173,8 +173,7 @@ function ExpenseDetailContent() {
   const [form] = Form.useForm();
 
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role?.name || user?.role;
-  const canEdit = ['Admin', 'Superadmin', 'Operator'].includes(userRole);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.expense']);
 
   // 1. Fetch Expense Detail
   const { data: expense, isLoading: isLoadingExpense, isError } = useQuery({

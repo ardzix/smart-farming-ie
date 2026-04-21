@@ -459,8 +459,7 @@ function ExpenseManagementContent() {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role?.name || user?.role;
-  const canEdit = ['Admin', 'Superadmin', 'Operator'].includes(userRole);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.expense']);
 
   const { data: expenses, isLoading: isLoadingExpenses, isError, error } = useQuery({ 
     queryKey: ['expenses'], 

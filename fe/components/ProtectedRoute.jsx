@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import useAuthStore from '@/lib/store/authStore';
 import { Spin } from 'antd';
 
-const ProtectedRoute = ({ children, roles }) => {
+const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, user, initializeAuth } = useAuthStore();
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
@@ -27,14 +27,9 @@ const ProtectedRoute = ({ children, roles }) => {
     if (!isChecking) {
       if (!isAuthenticated || !user) {
         router.push('/login');
-      } else if (roles) {
-        const userRole = user.role?.name || user.role;
-        if (!roles.includes(userRole)) {
-          router.push('/dashboard');
-        }
       }
     }
-  }, [isAuthenticated, user, roles, router, isChecking]);
+  }, [isAuthenticated, user, router, isChecking]);
 
   // 3. Tampilkan Loading Bersih (Tanpa Warning Antd)
   if (isChecking || (!isAuthenticated && !user)) {
@@ -47,14 +42,6 @@ const ProtectedRoute = ({ children, roles }) => {
         </div>
       </div>
     );
-  }
-
-  // 4. Return Null jika user ada tapi role salah (menunggu redirect)
-  if (roles && user) {
-    const userRole = user.role?.name || user.role;
-    if (!roles.includes(userRole)) {
-      return null;
-    }
   }
 
   return children;

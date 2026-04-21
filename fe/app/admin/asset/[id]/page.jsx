@@ -200,8 +200,7 @@ function AssetDetailContent() {
 
   // [RBAC] Cek Role
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role?.name || user?.role;
-  const canEdit = ['Admin', 'Superadmin'].includes(userRole);
+  const canEdit = user?.is_owner || useAuthStore.getState().hasAnyPermission(['manage.asset']);
 
   // Data Fetching
   const { data: assets, isLoading: isLoadingAssets } = useQuery({
