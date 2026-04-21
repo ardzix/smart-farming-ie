@@ -138,26 +138,27 @@ pipeline {
                         scp -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no be/supervisord.conf ${VPS_USER}@${VPS_HOST}:${VPS_APP_DIR}/supervisord.conf
 
                         echo "[INFO] Deploying service with rolling update..."
-                        ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} 'bash -se' <<EOSSH
+                        ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} \
+                          "STACK_NAME='${STACK_NAME}' REPLICAS='${REPLICAS}' NETWORK_NAME='${NETWORK_NAME}' VPS_APP_DIR='${VPS_APP_DIR}' DOCKER_IMAGE_REPO='${DOCKER_IMAGE_REPO}' DEPLOY_IMAGE='${DEPLOY_IMAGE}' bash -se" <<'EOSSH'
                             set -eu
 
                             docker swarm init >/dev/null 2>&1 || true
 
-                            if ! docker network inspect ${NETWORK_NAME} >/dev/null 2>&1; then
-                                docker network create --driver overlay --attachable ${NETWORK_NAME}
+                            if ! docker network inspect "${NETWORK_NAME}" >/dev/null 2>&1; then
+                                docker network create --driver overlay --attachable "${NETWORK_NAME}"
                             fi
 
                             DEPLOY_IMAGE="${DEPLOY_IMAGE:-${DOCKER_IMAGE_REPO}:latest}"
-                            docker pull "\$DEPLOY_IMAGE"
+                            docker pull "${DEPLOY_IMAGE}"
 
-                            if ! docker service inspect ${STACK_NAME} >/dev/null 2>&1; then
+                            if ! docker service inspect "${STACK_NAME}" >/dev/null 2>&1; then
                                 echo "[INFO] Creating service ${STACK_NAME}..."
                                 docker service create \
                                     --with-registry-auth \
-                                    --name ${STACK_NAME} \
+                                    --name "${STACK_NAME}" \
                                     --detach true \
-                                    --replicas ${REPLICAS} \
-                                    --network ${NETWORK_NAME} \
+                                    --replicas "${REPLICAS}" \
+                                    --network "${NETWORK_NAME}" \
                                     --mount type=bind,src=${VPS_APP_DIR}/.env,dst=/app/.env,ro=true \
                                     --mount type=bind,src=${VPS_APP_DIR}/supervisord.conf,dst=/etc/supervisor/conf.d/supervisord.conf,ro=true \
                                     --health-cmd "python -c 'import socket; s=socket.create_connection((\\\"127.0.0.1\\\",8000),3); s.close()'" \
@@ -176,14 +177,14 @@ pipeline {
                                     --rollback-order start-first \
                                     --rollback-parallelism 1 \
                                     --rollback-delay 5s \
-                                    "\$DEPLOY_IMAGE"
+                                    "${DEPLOY_IMAGE}"
                             else
                                 echo "[INFO] Updating service ${STACK_NAME}..."
-                                docker service update ${STACK_NAME} --publish-rm 8000 >/dev/null 2>&1 || true
-                                docker service update ${STACK_NAME} \
+                                docker service update "${STACK_NAME}" --publish-rm 8000 >/dev/null 2>&1 || true
+                                docker service update "${STACK_NAME}" \
                                     --with-registry-auth \
                                     --detach true \
-                                    --image "\$DEPLOY_IMAGE" \
+                                    --image "${DEPLOY_IMAGE}" \
                                     --force \
                                     --env-add DUMMY_ROLLOUT_TS="$(date +%s)" \
                                     --restart-condition any \
@@ -200,16 +201,16 @@ pipeline {
                                     --rollback-delay 5s
                             fi
 
-                            docker network connect ${NETWORK_NAME} nginx >/dev/null 2>&1 || true
+                            docker network connect "${NETWORK_NAME}" nginx >/dev/null 2>&1 || true
 
                             echo "[INFO] Waiting for service to become healthy (max 180s)..."
                             i=0
                             until [ $i -ge 36 ]
                             do
-                                RUNNING_COUNT="$(docker service ps ${STACK_NAME} --filter desired-state=running --format '{{.CurrentState}}' | grep -c '^Running' || true)"
+                                RUNNING_COUNT="$(docker service ps "${STACK_NAME}" --filter desired-state=running --format '{{.CurrentState}}' | grep -c '^Running' || true)"
                                 if [ "$RUNNING_COUNT" -ge "${REPLICAS}" ]; then
                                     echo "[INFO] Service ${STACK_NAME} is running (${RUNNING_COUNT}/${REPLICAS})."
-                                    docker service ps ${STACK_NAME}
+                                    docker service ps "${STACK_NAME}"
                                     exit 0
                                 fi
                                 i=$((i+1))
@@ -217,9 +218,9 @@ pipeline {
                             done
 
                             echo "[ERROR] Service ${STACK_NAME} is not healthy within timeout."
-                            docker service ps ${STACK_NAME} || true
-                            docker service inspect ${STACK_NAME} || true
-                            docker service logs ${STACK_NAME} --tail 100 || true
+                            docker service ps "${STACK_NAME}" || true
+                            docker service inspect "${STACK_NAME}" || true
+                            docker service logs "${STACK_NAME}" --tail 100 || true
                             exit 1
 EOSSH
                     '''
