@@ -40,8 +40,13 @@ pipeline {
         stage('Build & Push Docker Image') {
             steps {
                 script {
+                    if (!env.DOCKER_IMAGE_REPO?.trim() || !env.DOCKER_IMAGE_REPO.contains('/')) {
+                        error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}'. Expected format like 'namespace/repo'.")
+                    }
                     def imageTag = env.BUILD_NUMBER ?: 'latest'
                     env.DEPLOY_IMAGE = "${env.DOCKER_IMAGE_REPO}:${imageTag}"
+                    echo "Using image repo: ${env.DOCKER_IMAGE_REPO}"
+                    echo "Using deploy image: ${env.DEPLOY_IMAGE}"
 
                     withCredentials([
                         usernamePassword(
@@ -124,6 +129,16 @@ pipeline {
                 expression { return env.DEPLOY?.toBoolean() ?: false }
             }
             steps {
+                script {
+                    if (!env.DOCKER_IMAGE_REPO?.trim() || !env.DOCKER_IMAGE_REPO.contains('/')) {
+                        error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}' at deploy stage.")
+                    }
+                    if (!env.DEPLOY_IMAGE?.trim()) {
+                        def imageTag = env.BUILD_NUMBER ?: 'latest'
+                        env.DEPLOY_IMAGE = "${env.DOCKER_IMAGE_REPO}:${imageTag}"
+                    }
+                    echo "Deploy stage image: ${env.DEPLOY_IMAGE}"
+                }
                 withCredentials([
                     sshUserPrivateKey(credentialsId: env.SSH_CREDENTIALS, keyFileVariable: 'SSH_KEY_FILE')
                 ]) {
