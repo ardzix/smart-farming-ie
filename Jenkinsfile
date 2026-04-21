@@ -9,7 +9,7 @@ pipeline {
         SSH_CREDENTIALS = 'stag-arnatech-sa-01'
         STACK_NAME = 'smart-farming-be'
         REPLICAS = '1'
-        NETWORK_NAME = 'production_attach'
+        NETWORK_NAME = 'production'
         VPS_HOST = '172.105.124.43'
         VPS_USER = 'root'
         VPS_APP_DIR = '/root/smart-farming-ie/be'
