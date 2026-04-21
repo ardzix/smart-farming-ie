@@ -134,11 +134,11 @@ pipeline {
                         error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}' at deploy stage.")
                     }
                     def deployTag = env.BUILD_NUMBER ?: 'latest'
-                    env.TARGET_IMAGE = "${env.DOCKER_IMAGE_REPO}:${deployTag}"
-                    if (!env.TARGET_IMAGE.contains('/') || !env.TARGET_IMAGE.contains(':') || env.TARGET_IMAGE.startsWith('true')) {
-                        error("Resolved TARGET_IMAGE is invalid: '${env.TARGET_IMAGE}'")
+                    def resolvedImage = "${env.DOCKER_IMAGE_REPO}:${deployTag}"
+                    if (!resolvedImage.contains('/') || !resolvedImage.contains(':') || resolvedImage.startsWith('true')) {
+                        error("Resolved deploy image is invalid: '${resolvedImage}'")
                     }
-                    echo "Deploy stage image: ${env.TARGET_IMAGE}"
+                    echo "Deploy stage image: ${resolvedImage}"
                 }
                 withCredentials([
                     sshUserPrivateKey(credentialsId: env.SSH_CREDENTIALS, keyFileVariable: 'SSH_KEY_FILE')
@@ -155,7 +155,7 @@ pipeline {
 
                         echo "[INFO] Deploying service with rolling update..."
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} \
-                          "STACK_NAME='${STACK_NAME}' REPLICAS='${REPLICAS}' NETWORK_NAME='${NETWORK_NAME}' VPS_APP_DIR='${VPS_APP_DIR}' TARGET_IMAGE='${TARGET_IMAGE}' bash -se" <<'EOSSH'
+                          "STACK_NAME='${STACK_NAME}' REPLICAS='${REPLICAS}' NETWORK_NAME='${NETWORK_NAME}' VPS_APP_DIR='${VPS_APP_DIR}' TARGET_IMAGE='${DOCKER_IMAGE_REPO}:${BUILD_NUMBER:-latest}' bash -se" <<'EOSSH'
                             set -eu
 
                             docker swarm init >/dev/null 2>&1 || true
@@ -174,8 +174,16 @@ pipeline {
                                     exit 1
                                     ;;
                             esac
+                            echo "[INFO] TARGET_IMAGE=${TARGET_IMAGE}"
 
                             docker pull "${TARGET_IMAGE}"
+
+                            CURRENT_IMAGE="$(docker service inspect "${STACK_NAME}" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || true)"
+                            if [ "${CURRENT_IMAGE}" = "true:latest" ]; then
+                                echo "[WARN] Existing service uses invalid image true:latest. Recreating service..."
+                                docker service rm "${STACK_NAME}" || true
+                                sleep 3
+                            fi
 
                             if ! docker service inspect "${STACK_NAME}" >/dev/null 2>&1; then
                                 echo "[INFO] Creating service ${STACK_NAME}..."
