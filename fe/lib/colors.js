@@ -1,4 +1,4 @@
-export default {
+const colors = {
   // Primary Colors
   primary: {
     main: "", // Your main brand colo
@@ -97,3 +97,5 @@ export default {
     },
   },
 };
+
+export default colors;

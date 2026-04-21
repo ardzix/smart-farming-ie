@@ -50,7 +50,7 @@ export default function AddPasskeyModal({ open, onCancel }) {
     >
       <div className="space-y-4 pt-4">
         <p className="text-neutral-600 dark:text-neutral-400 mb-2">
-          Harap pastikan untuk memberikan nama yang mudah diingat untuk passkey ini, seperti "Passkey Laptop" atau "Passkey Mobile". Setelah dibuat, Anda dapat menggunakan passkey ini untuk login tanpa perlu memasukkan password.
+          Harap pastikan untuk memberikan nama yang mudah diingat untuk passkey ini, seperti &quot;Passkey Laptop&quot; atau &quot;Passkey Mobile&quot;. Setelah dibuat, Anda dapat menggunakan passkey ini untuk login tanpa perlu memasukkan password.
         </p>
 
         <Form form={form} layout="vertical" onFinish={handleConfirmRegister}>
