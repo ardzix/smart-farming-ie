@@ -130,11 +130,8 @@ pipeline {
             }
             steps {
                 script {
-                    if (!env.DOCKER_IMAGE_REPO?.trim() || !env.DOCKER_IMAGE_REPO.contains('/')) {
-                        error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}' at deploy stage.")
-                    }
                     def deployTag = env.BUILD_NUMBER ?: 'latest'
-                    def resolvedImage = "${env.DOCKER_IMAGE_REPO}:${deployTag}"
+                    def resolvedImage = "arnatechid/smart-farming-be:${deployTag}"
                     if (!resolvedImage.contains('/') || !resolvedImage.contains(':') || resolvedImage.startsWith('true')) {
                         error("Resolved deploy image is invalid: '${resolvedImage}'")
                     }
@@ -155,8 +152,14 @@ pipeline {
 
                         echo "[INFO] Deploying service with rolling update..."
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} \
-                          "STACK_NAME='${STACK_NAME}' REPLICAS='${REPLICAS}' NETWORK_NAME='${NETWORK_NAME}' VPS_APP_DIR='${VPS_APP_DIR}' TARGET_IMAGE='${DOCKER_IMAGE_REPO}:${BUILD_NUMBER:-latest}' bash -se" <<'EOSSH'
+                          'bash -se' -- "arnatechid/smart-farming-be:${BUILD_NUMBER:-latest}" "${STACK_NAME}" "${REPLICAS}" "${NETWORK_NAME}" "${VPS_APP_DIR}" <<'EOSSH'
                             set -eu
+
+                            TARGET_IMAGE="$1"
+                            STACK_NAME="$2"
+                            REPLICAS="$3"
+                            NETWORK_NAME="$4"
+                            VPS_APP_DIR="$5"
 
                             docker swarm init >/dev/null 2>&1 || true
 
@@ -164,13 +167,21 @@ pipeline {
                                 docker network create --driver overlay --attachable "${NETWORK_NAME}"
                             fi
 
-                            if [ -z "${TARGET_IMAGE:-}" ]; then
+                            if [ -z "${TARGET_IMAGE}" ]; then
                                 echo "[ERROR] TARGET_IMAGE is empty" >&2
                                 exit 1
                             fi
                             case "${TARGET_IMAGE}" in
                                 true|true:*|*:true)
                                     echo "[ERROR] TARGET_IMAGE resolved to invalid value: ${TARGET_IMAGE}" >&2
+                                    exit 1
+                                    ;;
+                            esac
+                            case "${TARGET_IMAGE}" in
+                                arnatechid/smart-farming-be:*)
+                                    ;;
+                                *)
+                                    echo "[ERROR] Unexpected TARGET_IMAGE value: ${TARGET_IMAGE}" >&2
                                     exit 1
                                     ;;
                             esac
