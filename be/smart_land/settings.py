@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
+from zoneinfo import available_timezones
 from dotenv import load_dotenv
 from django.utils.translation import gettext_lazy as _
 
@@ -174,7 +175,12 @@ LANGUAGES = [
     ('id', _('Indonesian')),
 ]
 LOCALE_PATHS = [BASE_DIR / 'locale']
-TIME_ZONE = os.getenv('DJANGO_TIME_ZONE', 'UTC')
+_raw_time_zone = os.getenv('DJANGO_TIME_ZONE', 'UTC').strip()
+_tz_candidates = [_raw_time_zone, _raw_time_zone.replace(' ', '_')]
+if '/' in _raw_time_zone:
+    _tz_candidates.append('/'.join(part.capitalize() for part in _raw_time_zone.split('/')))
+
+TIME_ZONE = next((tz for tz in _tz_candidates if tz in available_timezones()), 'UTC')
 USE_I18N = env_bool('DJANGO_USE_I18N', True)
 USE_TZ = env_bool('DJANGO_USE_TZ', True)
 
