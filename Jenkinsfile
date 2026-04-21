@@ -181,6 +181,8 @@ pipeline {
                             else
                                 echo "[INFO] Updating service ${STACK_NAME}..."
                                 docker service update "${STACK_NAME}" --publish-rm 8000 >/dev/null 2>&1 || true
+                                docker service update "${STACK_NAME}" --network-add "${NETWORK_NAME}" >/dev/null 2>&1 || true
+                                docker service update "${STACK_NAME}" --network-rm production_attach >/dev/null 2>&1 || true
                                 docker service update "${STACK_NAME}" \
                                     --with-registry-auth \
                                     --detach true \
