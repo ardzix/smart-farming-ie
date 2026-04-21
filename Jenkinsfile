@@ -155,6 +155,7 @@ pipeline {
                                 docker service create \
                                     --with-registry-auth \
                                     --name ${STACK_NAME} \
+                                    --detach true \
                                     --replicas ${REPLICAS} \
                                     --network ${NETWORK_NAME} \
                                     --mount type=bind,src=${VPS_APP_DIR}/.env,dst=/app/.env,ro=true \
@@ -181,6 +182,7 @@ pipeline {
                                 docker service update ${STACK_NAME} --publish-rm 8000 >/dev/null 2>&1 || true
                                 docker service update ${STACK_NAME} \
                                     --with-registry-auth \
+                                    --detach true \
                                     --image "\$DEPLOY_IMAGE" \
                                     --force \
                                     --env-add DUMMY_ROLLOUT_TS="$(date +%s)" \
@@ -200,8 +202,25 @@ pipeline {
 
                             docker network connect ${NETWORK_NAME} nginx >/dev/null 2>&1 || true
 
-                            sleep 5
-                            docker service ps ${STACK_NAME}
+                            echo "[INFO] Waiting for service to become healthy (max 180s)..."
+                            i=0
+                            until [ $i -ge 36 ]
+                            do
+                                RUNNING_COUNT="$(docker service ps ${STACK_NAME} --filter desired-state=running --format '{{.CurrentState}}' | grep -c '^Running' || true)"
+                                if [ "$RUNNING_COUNT" -ge "${REPLICAS}" ]; then
+                                    echo "[INFO] Service ${STACK_NAME} is running (${RUNNING_COUNT}/${REPLICAS})."
+                                    docker service ps ${STACK_NAME}
+                                    exit 0
+                                fi
+                                i=$((i+1))
+                                sleep 5
+                            done
+
+                            echo "[ERROR] Service ${STACK_NAME} is not healthy within timeout."
+                            docker service ps ${STACK_NAME} || true
+                            docker service inspect ${STACK_NAME} || true
+                            docker service logs ${STACK_NAME} --tail 100 || true
+                            exit 1
 EOSSH
                     '''
                 }
