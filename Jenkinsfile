@@ -215,8 +215,8 @@ pipeline {
                             docker pull "${TARGET_IMAGE}"
 
                             CURRENT_IMAGE="$(docker service inspect "${STACK_NAME}" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || true)"
-                            if [ "${CURRENT_IMAGE}" = "true:latest" ]; then
-                                echo "[WARN] Existing service uses invalid image true:latest. Recreating service..."
+                            if echo "${CURRENT_IMAGE}" | grep -Eq '(^|/)true:latest(@|$)'; then
+                                echo "[WARN] Existing service uses invalid image (${CURRENT_IMAGE}). Recreating service..."
                                 docker service rm "${STACK_NAME}" || true
                                 sleep 3
                             fi
@@ -250,15 +250,15 @@ pipeline {
                                     "${TARGET_IMAGE}"
                             else
                                 echo "[INFO] Updating service ${STACK_NAME}..."
-                                docker service update "${STACK_NAME}" --publish-rm 8000 >/dev/null 2>&1 || true
-                                docker service update "${STACK_NAME}" --network-add "${NETWORK_NAME}" >/dev/null 2>&1 || true
-                                docker service update "${STACK_NAME}" --network-rm production_attach >/dev/null 2>&1 || true
                                 docker service update "${STACK_NAME}" \
                                     --with-registry-auth \
                                     --detach true \
                                     --image "${TARGET_IMAGE}" \
                                     --force \
                                     --env-add DUMMY_ROLLOUT_TS="$(date +%s)" \
+                                    --network-add "${NETWORK_NAME}" \
+                                    --network-rm production_attach \
+                                    --publish-rm 8000 \
                                     --restart-condition any \
                                     --restart-delay 5s \
                                     --restart-max-attempts 5 \
@@ -270,7 +270,27 @@ pipeline {
                                     --update-failure-action rollback \
                                     --rollback-order start-first \
                                     --rollback-parallelism 1 \
-                                    --rollback-delay 5s
+                                    --rollback-delay 5s || {
+                                        echo "[WARN] Primary update command failed. Retrying without network/publish mutation..."
+                                        docker service update "${STACK_NAME}" \
+                                            --with-registry-auth \
+                                            --detach true \
+                                            --image "${TARGET_IMAGE}" \
+                                            --force \
+                                            --env-add DUMMY_ROLLOUT_TS="$(date +%s)" \
+                                            --restart-condition any \
+                                            --restart-delay 5s \
+                                            --restart-max-attempts 5 \
+                                            --restart-window 60s \
+                                            --update-order start-first \
+                                            --update-parallelism 1 \
+                                            --update-delay 10s \
+                                            --update-monitor 30s \
+                                            --update-failure-action rollback \
+                                            --rollback-order start-first \
+                                            --rollback-parallelism 1 \
+                                            --rollback-delay 5s
+                                    }
                             fi
 
                             docker network connect "${NETWORK_NAME}" nginx >/dev/null 2>&1 || true
