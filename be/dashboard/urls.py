@@ -2,9 +2,9 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 
-# Gunakan Router untuk membuat endpoint otomatis
+# Use a router to generate the viewset routes
 router = DefaultRouter()
-# Ini akan membuat URL: /api/dashboard/dashboard-config/
+# This exposes the URL /api/dashboard/dashboard-config/
 router.register(r'dashboard-config', views.DashboardViewSet, basename='dashboard-config')
 
 urlpatterns = [

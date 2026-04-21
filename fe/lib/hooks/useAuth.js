@@ -4,6 +4,7 @@ import useAuthStore from '@/lib/store/authStore';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { message, Modal } from 'antd';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export const useLogin = () => {
   const loginToStore = useAuthStore((state) => state.login);
@@ -40,6 +41,7 @@ export const useLogin = () => {
 
 export const useRegister = () => {
   const router = useRouter();
+  const { t } = useI18n();
 
   return useMutation({
     mutationFn: (userData) => authAPI.register(userData),
@@ -48,7 +50,7 @@ export const useRegister = () => {
 
       if (require_verification) {
         // SSO Arnatech butuh verifikasi email via OTP sebelum bisa login
-        message.success(serverMessage || 'Pendaftaran berhasil! Silakan verifikasi email Anda.');
+        message.success(serverMessage || t('auth.registrationNeedsVerification'));
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       } else if (response.data.user) {
         // Fallback jika SSO langsung auto-login
@@ -57,7 +59,7 @@ export const useRegister = () => {
         Cookies.set('user', JSON.stringify(response.data.user), { expires: 1, path: '/' });
         router.push('/admin');
       } else {
-        message.success(serverMessage || 'Pendaftaran berhasil, silakan login.');
+        message.success(serverMessage || t('auth.registrationPleaseLogin'));
         router.push('/login');
       }
     },
@@ -94,6 +96,7 @@ export const useLogout = () => {
 export const useSsoLogin = () => {
   const loginToStore = useAuthStore((state) => state.login);
   const router = useRouter();
+  const { t } = useI18n();
 
   return useMutation({
     mutationFn: (data) => authAPI.ssoGoogleLogin(data),
@@ -115,38 +118,40 @@ export const useSsoLogin = () => {
     },
     onError: (error) => {
       console.error('SSO Login Error:', error.response?.data || error.message);
-      message.error('Terjadi kesalahan saat otorisasi masuk via Google.');
+      message.error(t('auth.googleAuthError'));
     },
   });
 };
 
 export const useVerifyEmail = () => {
   const router = useRouter();
+  const { t } = useI18n();
 
   return useMutation({
     mutationFn: (data) => authAPI.verifyEmail(data),
     onSuccess: async (response) => {
-      message.success(response.data.message || 'Email berhasil diverifikasi!');
+      message.success(response.data.message || t('auth.emailVerifiedToast'));
       router.push('/login');
     },
     onError: (error) => {
       const errorMsg = error.response?.data?.error || error.response?.data?.details || error.message;
       console.error('Verify Email Error:', errorMsg);
-      message.error(typeof errorMsg === 'string' ? errorMsg : 'Kode OTP tidak valid atau sudah kedaluwarsa.');
+      message.error(typeof errorMsg === 'string' ? errorMsg : t('auth.invalidOrExpiredOtp'));
     },
   });
 };
 
 export const useResendOtp = () => {
+  const { t } = useI18n();
   return useMutation({
     mutationFn: (data) => authAPI.resendEmailOtp(data),
     onSuccess: (response) => {
-      message.success(response.data.message || 'Kode OTP baru telah dikirim.');
+      message.success(response.data.message || t('auth.resendOtpSuccess'));
     },
     onError: (error) => {
       const errorMsg = error.response?.data?.error || error.message;
       console.error('Resend OTP Error:', errorMsg);
-      message.error(typeof errorMsg === 'string' ? errorMsg : 'Gagal mengirim ulang OTP.');
+      message.error(typeof errorMsg === 'string' ? errorMsg : t('auth.resendOtpFailed'));
     },
   });
 };
@@ -159,28 +164,30 @@ export const useMfaSetup = () => {
 
 export const useMfaVerifySetup = () => {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   return useMutation({
     mutationFn: (data) => authAPI.mfaVerify(data),
     onSuccess: () => {
-      message.success('MFA berhasil diaktifkan!');
+      message.success(t('auth.mfaEnabled'));
       queryClient.invalidateQueries({ queryKey: ['mfaStatus'] });
     },
     onError: (error) => {
-      message.error(error.response?.data?.message || error.response?.data?.error || 'Gagal verifikasi setup MFA.');
+      message.error(error.response?.data?.message || error.response?.data?.error || t('auth.mfaSetupFailed'));
     }
   });
 };
 
 export const useMfaDisable = () => {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   return useMutation({
     mutationFn: (data) => authAPI.mfaDisable(data),
     onSuccess: () => {
-      message.success('MFA berhasil dinonaktifkan.');
+      message.success(t('auth.mfaDisabled'));
       queryClient.invalidateQueries({ queryKey: ['mfaStatus'] });
     },
     onError: (error) => {
-      message.error(error.response?.data?.message || 'Password atau OTP salah, atau gagal menonaktifkan MFA.');
+      message.error(error.response?.data?.message || t('auth.mfaDisableFailed'));
     }
   });
 };
@@ -188,6 +195,7 @@ export const useMfaDisable = () => {
 export const useMfaVerifyLogin = () => {
   const loginToStore = useAuthStore((state) => state.login);
   const router = useRouter();
+  const { t } = useI18n();
 
   return useMutation({
     mutationFn: (data) => authAPI.mfaVerify(data), // { otp, pre_auth_token }
@@ -204,11 +212,11 @@ export const useMfaVerifyLogin = () => {
         Cookies.set('user', JSON.stringify(user), { expires: 1, path: '/' });
         router.push('/admin');
       } else {
-        message.success('MFA Verified, Redirecting...');
+        message.success(t('auth.mfaVerifiedRedirecting'));
       }
     },
     onError: (error) => {
-      message.error(error.response?.data?.message || error.response?.data?.error || 'Kode OTP tidak valid.');
+      message.error(error.response?.data?.message || error.response?.data?.error || t('auth.invalidOtp'));
     },
   });
 };
@@ -226,14 +234,15 @@ export const usePasskeysList = (enabled) => {
 
 export const usePasskeysDelete = () => {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   return useMutation({
     mutationFn: (id) => authAPI.passKeysDelete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['PASSKEY_LIST'] });
-      message.success('Passkey berhasil dihapus.');
+      message.success(t('auth.passkeyDeleted'));
     },
     onError: (error) => {
-      message.error(error.response?.data?.message || 'Gagal menghapus passkey.');
+      message.error(error.response?.data?.message || t('auth.passkeyDeleteFailed'));
     }
   });
 };

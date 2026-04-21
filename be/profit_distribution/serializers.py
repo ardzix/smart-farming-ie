@@ -10,11 +10,11 @@ class ProfitDistributionItemSerializer(serializers.ModelSerializer):
 class ProfitDistributionSerializer(serializers.ModelSerializer):
     items = ProfitDistributionItemSerializer(many=True, read_only=True)
     
-    # Field Tambahan untuk Statistik
+    # Additional computed fields for summary statistics
     real_distributed = serializers.SerializerMethodField()
     landowner_portion = serializers.SerializerMethodField()
     investor_portion = serializers.SerializerMethodField()
-    retained_portion = serializers.SerializerMethodField() # Ini SISA yang anda minta
+    retained_portion = serializers.SerializerMethodField() # Remaining undistributed amount
 
     class Meta:
         model = ProfitDistribution
@@ -25,7 +25,7 @@ class ProfitDistributionSerializer(serializers.ModelSerializer):
         ]
 
     def get_real_distributed(self, obj):
-        # Total yang benar-benar terkirim (ada itemnya)
+        # Amount actually distributed through concrete payout items
         return obj.items.aggregate(Sum('amount'))['amount__sum'] or 0
 
     def get_landowner_portion(self, obj):
@@ -35,6 +35,6 @@ class ProfitDistributionSerializer(serializers.ModelSerializer):
         return obj.items.filter(role='Investor').aggregate(Sum('amount'))['amount__sum'] or 0
 
     def get_retained_portion(self, obj):
-        # Sisa = Total Rencana (Input Admin) - Total Real Terkirim
+        # Remainder = planned total input - actual distributed total
         real = self.get_real_distributed(obj)
         return obj.total_distributed - real

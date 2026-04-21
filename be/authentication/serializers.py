@@ -39,7 +39,7 @@ class UserSerializer(serializers.ModelSerializer):
             user.set_password(password)
             user.save()
             
-        # Update profile
+        # Update the local profile fields
         if hasattr(user, 'profile'):
             user.profile.phone = phone
             user.profile.address = address

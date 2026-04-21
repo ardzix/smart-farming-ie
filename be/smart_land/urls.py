@@ -23,15 +23,15 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('authentication.urls')),
     path('api/asset/', include('asset.urls')),
-    path('api/funding/', include('funding.urls')),       # Sudah gabungan Investor & Donasi
-    path('api/expense/', include('expense.urls')),       # Global Expense
-    path('api/production/', include('production.urls')), # Stok Fisik
-    path('api/sales/', include('sales.urls')),           # Penjualan (Revenue) - App Baru
-    path('api/profit-distribution/', include('profit_distribution.urls')), # Bagi Hasil Global
+    path('api/funding/', include('funding.urls')),       # Combined investor + donation funding
+    path('api/expense/', include('expense.urls')),       # Global expenses
+    path('api/production/', include('production.urls')), # Physical stock and production
+    path('api/sales/', include('sales.urls')),           # Sales and revenue
+    path('api/profit-distribution/', include('profit_distribution.urls')), # Global profit distribution
     path('api/dashboard/', include('dashboard.urls')),
     path('api/settings/', include('site_settings.urls')),
 ]
 
-# Tambahan untuk melayani file media (Gambar Upload) saat Development
+# Serve uploaded media files in development.
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

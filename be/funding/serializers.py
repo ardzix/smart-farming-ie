@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils.translation import gettext_lazy as _
 from .models import Funding
 
 class FundingSerializer(serializers.ModelSerializer):
@@ -8,16 +9,16 @@ class FundingSerializer(serializers.ModelSerializer):
         model = Funding
         fields = '__all__'
 
-    # [LOGIKA TAMBAHAN] Sesuai request atasan
+    # Additional validation for investor funding rows
     def validate(self, data):
-        # Cek apa yang dipilih user
+        # Inspect the selected funding source type
         tipe = data.get('source_type')
         saham = data.get('shares')
 
-        # Kalau Investor, WAJIB punya saham
+        # Investor entries must include share units
         if tipe == 'investor' and not saham:
             raise serializers.ValidationError({
-                "shares": "Untuk tipe Investor, jumlah lembar saham wajib diisi."
+                "shares": _("Investor funding requires a share count.")
             })
         
         return data

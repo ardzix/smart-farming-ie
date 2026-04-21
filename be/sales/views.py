@@ -12,7 +12,7 @@ def list_create_sales(request):
     if request.method == 'GET':
         queryset = Sale.objects.select_related('product').all().order_by('-date')
         
-        # Filter Pencarian
+        # Search filter
         search = request.query_params.get('search')
         if search:
             queryset = queryset.filter(product__name__icontains=search) | queryset.filter(buyer_name__icontains=search)
@@ -24,15 +24,15 @@ def list_create_sales(request):
         serializer = SaleSerializer(data=request.data)
         if serializer.is_valid():
             try:
-                # Simpan data. 
-                # Model Sale.save() akan otomatis:
-                # 1. Validasi stok cukup
-                # 2. Hitung total harga
-                # 3. Kurangi stok produk
+                # Persist the sale. 
+                # Sale.save() automatically:
+                # 1. Validates stock availability
+                # 2. Calculates the total price
+                # 3. Decrements product stock
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except ValueError as e:
-                # Tangkap error validasi stok dari models.py
+                # Surface model-level stock validation errors
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -65,7 +65,7 @@ def sale_detail(request, pk):
                     available_stock = old_product.current_stock + old_quantity
                     if new_quantity > available_stock:
                         return Response(
-                            {"detail": f"Stok tidak cukup! Sisa: {available_stock}"},
+                            {"detail": f"Insufficient stock. Remaining: {available_stock}"},
                             status=status.HTTP_400_BAD_REQUEST
                         )
                     old_product.current_stock = available_stock - new_quantity
@@ -73,7 +73,7 @@ def sale_detail(request, pk):
                 else:
                     if new_quantity > new_product.current_stock:
                         return Response(
-                            {"detail": f"Stok tidak cukup! Sisa: {new_product.current_stock}"},
+                            {"detail": f"Insufficient stock. Remaining: {new_product.current_stock}"},
                             status=status.HTTP_400_BAD_REQUEST
                         )
                     old_product.current_stock += old_quantity
@@ -86,11 +86,11 @@ def sale_detail(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        # Perhatian: Model Anda saat ini TIDAK memiliki logika pengembalian stok saat delete.
-        # Jika ingin stok kembali saat delete, Anda harus menambahkannya manual di sini 
-        # atau di method delete() model.
+        # Warning: the model does not restore stock automatically on delete.
+        # If you want stock to be restored on delete, keep the logic here 
+        # or move it into the model delete() method.
         
-        # Contoh manual pengembalian stok sederhana:
+        # Manual stock restoration example:
         product = sale.product
         product.current_stock += sale.quantity
         product.save()

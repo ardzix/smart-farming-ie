@@ -1,19 +1,20 @@
 # dashboard/models.py
 from django.db import models
 from django.db.models import Sum
+from django.utils.translation import gettext_lazy as _
 
 class SystemConfig(models.Model):
-    total_system_shares = models.PositiveIntegerField(default=15000, verbose_name="Total Lembar Saham")
-    share_price = models.DecimalField(max_digits=15, decimal_places=2, default=100000, verbose_name="Harga Per Lembar")
+    total_system_shares = models.PositiveIntegerField(default=15000, verbose_name=_("Total Share Units"))
+    share_price = models.DecimalField(max_digits=15, decimal_places=2, default=100000, verbose_name=_("Price Per Share"))
 
     class Meta:
-        verbose_name = "Dashboard & Konfigurasi"
-        verbose_name_plural = "Dashboard & Konfigurasi"
+        verbose_name = _("Dashboard & Configuration")
+        verbose_name_plural = _("Dashboard & Configuration")
 
     def __str__(self):
-        return "Pengaturan Sistem & Laporan Global"
+        return "System Settings & Global Report"
 
-    # --- FUNGSI HITUNG ---
+    # --- Aggregate helpers ---
     def total_assets(self):
         from asset.models import Asset
         return Asset.objects.count()
@@ -24,7 +25,7 @@ class SystemConfig(models.Model):
 
     def total_funding(self):
         from funding.models import Funding
-        # [FIX] Hapus filter status='active' (field tidak ada)
+        # Do not filter by status; the field does not exist on the current model
         val = Funding.objects.aggregate(Sum('amount'))['amount__sum'] or 0
         return val
 
@@ -49,19 +50,19 @@ class SystemConfig(models.Model):
         from sales.models import Sale
         from profit_distribution.models import ProfitDistributionItem
 
-        # [FIX] Hapus filter status
+        # Do not filter by status; the field does not exist on the current model
         funding_in = Funding.objects.aggregate(Sum('amount'))['amount__sum'] or 0
         sales_in = Sale.objects.aggregate(Sum('total_price'))['total_price__sum'] or 0
         expense_out = Expense.objects.aggregate(Sum('amount'))['amount__sum'] or 0
         dividend_out = ProfitDistributionItem.objects.aggregate(Sum('amount'))['amount__sum'] or 0
 
-        saldo = (funding_in + sales_in) - (expense_out + dividend_out)
+        cash_balance = (funding_in + sales_in) - (expense_out + dividend_out)
 
-        return saldo
+        return cash_balance
 
     def shares_sold(self):
         from funding.models import Funding
-        # Filter hanya investor (source_type='investor')
+        # Count only investor funding rows (source_type='investor')
         return Funding.objects.filter(source_type='investor').aggregate(Sum('shares'))['shares__sum'] or 0
     
     def shares_available(self):

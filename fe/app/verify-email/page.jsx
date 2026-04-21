@@ -6,19 +6,20 @@ import { MailOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useVerifyEmail, useResendOtp } from '@/lib/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 const { Title, Text } = Typography;
 
 function VerifyEmailContent() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get('email') || '';
-  
+
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef([]);
   const verifyMutation = useVerifyEmail();
   const resendMutation = useResendOtp();
 
-  // Focus first input on mount
   useEffect(() => {
     if (inputRefs.current[0]) {
       inputRefs.current[0].focus();
@@ -26,21 +27,18 @@ function VerifyEmailContent() {
   }, []);
 
   const handleChange = (index, value) => {
-    // Only allow digits
     if (value && !/^\d$/.test(value)) return;
 
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (index, e) => {
-    // Backspace: clear current and focus previous
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -54,7 +52,6 @@ function VerifyEmailContent() {
         newOtp[i] = pasted[i] || '';
       }
       setOtp(newOtp);
-      // Focus the next empty input or last one
       const focusIndex = Math.min(pasted.length, 5);
       inputRefs.current[focusIndex]?.focus();
       e.preventDefault();
@@ -64,7 +61,7 @@ function VerifyEmailContent() {
   const handleVerify = () => {
     const otpString = otp.join('');
     if (otpString.length !== 6) {
-      message.warning('Masukkan 6 digit kode OTP.');
+      message.warning(t('auth.enterSixDigitOtp'));
       return;
     }
     verifyMutation.mutate({ email: emailFromQuery, otp: otpString });
@@ -72,13 +69,13 @@ function VerifyEmailContent() {
 
   const handleResend = () => {
     if (!emailFromQuery) {
-      message.error('Email tidak ditemukan.');
+      message.error(t('auth.emailNotFound'));
       return;
     }
     resendMutation.mutate({ email: emailFromQuery });
   };
 
-  const otpComplete = otp.every(d => d !== '');
+  const otpComplete = otp.every((digit) => digit !== '');
 
   const inputStyle = {
     width: 48,
@@ -97,26 +94,23 @@ function VerifyEmailContent() {
       <Card style={{ width: 440, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' }}>
         <Flex vertical align="center" gap="middle" style={{ marginBottom: 24 }}>
           <GiSprout style={{ fontSize: '44px', color: '#237804' }} />
-          <Title level={3} style={{ margin: 0 }}>Verifikasi Email</Title>
+          <Title level={3} style={{ margin: 0 }}>
+            {t('auth.verifyEmail')}
+          </Title>
         </Flex>
 
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <MailOutlined style={{ fontSize: 48, color: '#237804', marginBottom: 12 }} />
-          <Text style={{ display: 'block', marginBottom: 8 }}>
-            Kami telah mengirimkan kode OTP 6-digit ke:
-          </Text>
+          <Text style={{ display: 'block', marginBottom: 8 }}>{t('auth.otpSentTo')}</Text>
           <Text strong style={{ fontSize: 16 }}>
-            {emailFromQuery || '(email tidak tersedia)'}
+            {emailFromQuery || t('auth.emailUnavailable')}
           </Text>
         </div>
 
         {verifyMutation.isError && (
           <Alert
-            message="Verifikasi Gagal"
-            description={
-              verifyMutation.error?.response?.data?.error || 
-              'Kode OTP tidak valid atau sudah kedaluwarsa.'
-            }
+            message={t('auth.verifyFailed')}
+            description={verifyMutation.error?.response?.data?.error || t('auth.invalidOrExpiredOtp')}
             type="error"
             showIcon
             closable
@@ -126,8 +120,8 @@ function VerifyEmailContent() {
 
         {verifyMutation.isSuccess && (
           <Alert
-            message="Email Terverifikasi!"
-            description="Mengalihkan ke halaman login..."
+            message={t('auth.emailVerified')}
+            description={t('auth.redirectingToLogin')}
             type="success"
             showIcon
             icon={<CheckCircleOutlined />}
@@ -135,12 +129,13 @@ function VerifyEmailContent() {
           />
         )}
 
-        {/* OTP Input Boxes */}
         <Flex justify="center" gap={8} style={{ marginBottom: 24 }} onPaste={handlePaste}>
           {otp.map((digit, index) => (
             <input
               key={index}
-              ref={el => inputRefs.current[index] = el}
+              ref={(el) => {
+                inputRefs.current[index] = el;
+              }}
               type="text"
               inputMode="numeric"
               maxLength={1}
@@ -151,8 +146,12 @@ function VerifyEmailContent() {
                 ...inputStyle,
                 borderColor: digit ? '#237804' : '#d9d9d9',
               }}
-              onFocus={(e) => e.target.style.borderColor = '#237804'}
-              onBlur={(e) => e.target.style.borderColor = digit ? '#237804' : '#d9d9d9'}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#237804';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = digit ? '#237804' : '#d9d9d9';
+              }}
               disabled={verifyMutation.isPending || verifyMutation.isSuccess}
             />
           ))}
@@ -167,24 +166,19 @@ function VerifyEmailContent() {
           disabled={!otpComplete || verifyMutation.isSuccess}
           style={{ background: '#237804', borderColor: '#237804', marginBottom: 16 }}
         >
-          Verifikasi Email
+          {t('auth.verifyEmailAction')}
         </Button>
 
         <Flex justify="center" align="center" gap={4} style={{ marginBottom: 16 }}>
-          <Text type="secondary">Tidak menerima kode?</Text>
-          <Button 
-            type="link" 
-            onClick={handleResend} 
-            loading={resendMutation.isPending}
-            style={{ color: '#237804', padding: 0 }}
-          >
-            Kirim Ulang OTP
+          <Text type="secondary">{t('auth.didNotReceiveCode')}</Text>
+          <Button type="link" onClick={handleResend} loading={resendMutation.isPending} style={{ color: '#237804', padding: 0 }}>
+            {t('auth.resendOtp')}
           </Button>
         </Flex>
 
         <Flex justify="center">
           <Link href="/login" style={{ color: '#237804' }}>
-            ← Kembali ke halaman Login
+            {`← ${t('auth.backToLoginPage')}`}
           </Link>
         </Flex>
       </Card>
@@ -194,11 +188,13 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={
-      <Flex align="center" justify="center" style={{ minHeight: '100vh', background: '#F9FAFB' }}>
-        <Text>Memuat...</Text>
-      </Flex>
-    }>
+    <Suspense
+      fallback={
+        <Flex align="center" justify="center" style={{ minHeight: '100vh', background: '#F9FAFB' }}>
+          <Text>Memuat...</Text>
+        </Flex>
+      }
+    >
       <VerifyEmailContent />
     </Suspense>
   );

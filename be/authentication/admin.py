@@ -2,9 +2,9 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import CustomUser, Profile
 
-# Daftarkan model CustomUser Anda
+# Register the custom user model
 class CustomUserAdmin(UserAdmin):
-    # Tambahkan field 'role' agar bisa diedit di admin panel
+    # Keep the legacy 'role' field editable in Django admin
     fieldsets = UserAdmin.fieldsets + (
         (None, {'fields': ('role',)}),
     )

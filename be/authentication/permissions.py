@@ -10,13 +10,13 @@ def HasSSOPermission(resource_name):
             if not request.user or not request.user.is_authenticated:
                 return False
                 
-            # 1. Superadmin Level (Full access) via is_owner
+            # 1. Owner-level access grants full permissions
             if request.session.get('sso_is_owner', False):
                 return True
                 
             sso_perms = request.session.get('sso_permissions', [])
             
-            # 2. Check complete manage access
+            # 2. Check full manage access
             if f'manage.{resource_name}' in sso_perms:
                 return True
                 

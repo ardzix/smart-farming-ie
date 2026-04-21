@@ -9,9 +9,9 @@ class DashboardViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
 
     def list(self, request):
-        # [FIX] Gunakan model + serializer, BUKAN agregasi manual
+        # Use the model + serializer pipeline instead of ad-hoc aggregation
         config, _ = SystemConfig.objects.get_or_create(id=1)
         serializer = SystemConfigSerializer(config)
         
-        # Debug print akan muncul saat serializer.data dipanggil
+        # The serializer computes aggregate fields when serializer.data is accessed
         return Response(serializer.data)

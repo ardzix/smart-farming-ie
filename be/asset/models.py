@@ -1,55 +1,56 @@
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 class Asset(models.Model):
-    # --- PILIHAN (SAMA PERSIS DENGAN KODE LAMA) ---
+    # --- Choice sets retained for compatibility ---
     ASSET_TYPES = [
-        ('lahan', 'Lahan'),
-        ('alat', 'Alat'),
-        ('bangunan', 'Bangunan'),
-        ('ternak', 'Ternak'),
+        ('lahan', _('Land')),
+        ('alat', _('Equipment')),
+        ('bangunan', _('Building')),
+        ('ternak', _('Livestock')),
     ]
 
     OWNERSHIP_STATUS_CHOICES = [
-        ('full_ownership', 'Full Ownership'),
-        ('partial_ownership', 'Partial Ownership'),
-        ('investor_owned', 'Investor Owned'),
-        ('leashold', 'Leased'),
-        ('under_construction', 'Under Construction'),
-        ('personal_ownership', 'Personal Ownership'),
+        ('full_ownership', _('Full Ownership')),
+        ('partial_ownership', _('Partial Ownership')),
+        ('investor_owned', _('Investor Owned')),
+        ('leashold', _('Leased')),
+        ('under_construction', _('Under Construction')),
+        ('personal_ownership', _('Personal Ownership')),
     ]
 
-    # --- FIELD ---
-    name = models.CharField(max_length=100, verbose_name='Nama Aset')
+    # --- Fields ---
+    name = models.CharField(max_length=100, verbose_name=_('Asset Name'))
     
-    # Tipe Aset
-    type = models.CharField(max_length=100, choices=ASSET_TYPES, verbose_name='Tipe Aset')
+    # Asset type
+    type = models.CharField(max_length=100, choices=ASSET_TYPES, verbose_name=_('Asset Type'))
     
-    location = models.CharField(max_length=100, verbose_name='Lokasi')
-    size = models.FloatField(verbose_name='Ukuran (m²)', null=True, blank=True)
+    location = models.CharField(max_length=100, verbose_name=_('Location'))
+    size = models.FloatField(verbose_name=_('Size (m2)'), null=True, blank=True)
     
-    value = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Nilai Aset')
-    acquisition_date = models.DateField(verbose_name='Tanggal Akuisisi')
+    value = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Asset Value'))
+    acquisition_date = models.DateField(verbose_name=_('Acquisition Date'))
     
-    # Status Kepemilikan
+    # Ownership status
     ownership_status = models.CharField(
         max_length=50, 
         choices=OWNERSHIP_STATUS_CHOICES,
-        verbose_name='Status Kepemilikan'
+        verbose_name=_('Ownership Status')
     )
     
-    # [INFO PEMILIK] Hanya teks, tidak ada tabel terpisah
-    landowner = models.CharField(max_length=100, null=True, blank=True, verbose_name='Nama Pemilik Lahan')
+    # Landowner data remains plain text; there is no separate table
+    landowner = models.CharField(max_length=100, null=True, blank=True, verbose_name=_('Landowner Name'))
     
-    # Persentase Bagi Hasil (Angka)
+    # Landowner revenue-share percentage
     landowner_share_percentage = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
         default=0.00,
-        verbose_name='% Bagi Hasil Pemilik'
+        verbose_name=_('Landowner Share %')
     )
 
-    # [UPLOAD] Ganti document_url jadi ImageField
-    image = models.ImageField(upload_to='assets/', null=True, blank=True, verbose_name='Foto/Dokumen')
+    # Store uploaded asset images/documents directly on the model
+    image = models.ImageField(upload_to='assets/', null=True, blank=True, verbose_name=_('Photo/Document'))
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -57,5 +58,5 @@ class Asset(models.Model):
         return self.name
 
     class Meta:
-        verbose_name = 'Aset'
-        verbose_name_plural = 'Aset'
+        verbose_name = _('Asset')
+        verbose_name_plural = _('Assets')

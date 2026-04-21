@@ -1,57 +1,57 @@
 # Integrated Farming
 
-Integrated Farming adalah aplikasi manajemen operasional dan investasi untuk usaha pertanian/peternakan. Repository ini terdiri dari:
+Integrated Farming is an operations and investment management platform for agriculture and livestock businesses. This repository contains:
 
-- `be/`: backend Django REST API
-- `fe/`: frontend Next.js
-- `scripts/`: helper script untuk menjalankan backend dan frontend lokal
+- `be/`: Django REST backend
+- `fe/`: Next.js frontend
+- `scripts/`: helper scripts for running the backend and frontend locally
 
-## Fitur aktif
+## Active Features
 
-- autentikasi lokal yang diproxy ke SSO Arnatech
-- login Google, MFA, dan passkeys
-- manajemen aset
-- pendanaan investor dan donasi
-- pengeluaran operasional
-- produksi dan stok produk
-- penjualan hasil produksi
-- distribusi bagi hasil
-- dashboard ringkasan keuangan dan operasional
-- pengaturan site dan user management
+- local authentication proxied to Arnatech SSO
+- Google login, MFA, and passkeys
+- asset management
+- investor funding and donations
+- operating expenses
+- production tracking and product stock
+- sales recording
+- profit distribution
+- operational and financial dashboard summaries
+- site settings and user management
 
-## Struktur utama
+## Main Structure
 
 ```text
 .
-├── be/
-│   ├── authentication/
-│   ├── asset/
-│   ├── dashboard/
-│   ├── expense/
-│   ├── funding/
-│   ├── production/
-│   ├── profit_distribution/
-│   ├── sales/
-│   ├── site_settings/
-│   └── smart_land/
-├── fe/
-│   ├── app/
-│   ├── components/
-│   └── lib/
-└── scripts/
+|-- be/
+|   |-- authentication/
+|   |-- asset/
+|   |-- dashboard/
+|   |-- expense/
+|   |-- funding/
+|   |-- production/
+|   |-- profit_distribution/
+|   |-- sales/
+|   |-- site_settings/
+|   `-- smart_land/
+|-- fe/
+|   |-- app/
+|   |-- components/
+|   `-- lib/
+`-- scripts/
 ```
 
 ## Backend
 
-Framework:
+Stack:
 
 - Django 5
 - Django REST Framework
 - SimpleJWT
-- SQLite default untuk development
-- PostgreSQL optional lewat env
+- SQLite by default for development
+- optional PostgreSQL via environment variables
 
-Endpoint utama terdaftar di `be/smart_land/urls.py`:
+Primary endpoints are registered in `be/smart_land/urls.py`:
 
 - `/api/auth/`
 - `/api/asset/`
@@ -65,15 +65,16 @@ Endpoint utama terdaftar di `be/smart_land/urls.py`:
 
 ## Frontend
 
-Framework:
+Stack:
 
 - Next.js 15
 - React 19
 - Ant Design
 - TanStack Query
 - Zustand
+- lightweight client-side locale switching (`id` / `en`)
 
-Route utama:
+Primary routes:
 
 - `/login`
 - `/register`
@@ -89,7 +90,7 @@ Route utama:
 - `/admin/pengaturan`
 - `/admin/authentication`
 
-## Menjalankan project
+## Running the Project
 
 ### 1. Backend
 
@@ -110,14 +111,15 @@ npm install
 npm run dev
 ```
 
-Catatan frontend:
+Frontend notes:
 
-- untuk local Windows, Node 20 LTS lebih disarankan
-- pada beberapa environment, Node 22 dapat memunculkan error `spawn EPERM` saat `next dev`
+- Node 20 LTS is recommended for local Windows development
+- in some environments, Node 22 can trigger a `spawn EPERM` error when running `next dev`
+- the frontend defaults to Indonesian (`id`) and includes a language switcher for Indonesian/English
 
-### 3. Jalankan sekaligus
+### 3. Run Both Together
 
-Script helper tersedia di folder `scripts/`:
+Helper scripts are available in `scripts/`:
 
 ```bash
 sh scripts/run-local.sh
@@ -135,30 +137,45 @@ Windows CMD:
 scripts\run-local.bat
 ```
 
-## Konfigurasi environment
+## Environment Configuration
 
-Frontend membaca:
+Frontend reads:
 
 - `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_GOOGLE_CLIENTID`
 
-Backend auto-load file `be/.env`.
+Frontend locale behavior:
 
-Contoh env backend tersedia di `be/.env.example`, mencakup:
+- default locale is `id`
+- supported frontend locales are `id` and `en`
+- the selected locale is persisted in cookies/local storage
+- frontend requests send `Accept-Language`
+
+The backend automatically loads `be/.env`.
+
+A backend example file is provided at `be/.env.example`, including:
 
 - Django core settings
-- database SQLite/PostgreSQL
+- SQLite/PostgreSQL database settings
 - JWT settings
 - CORS settings
 - media/static settings
-- SSO settings termasuk `SSO_PUBLIC_KEY_PATH`
+- i18n settings
+- SSO settings, including `SSO_PUBLIC_KEY_PATH`
 
-Backend mendukung:
+Backend i18n behavior:
 
-- SQLite default
-- PostgreSQL jika `USE_POSTGRES=True`
+- Django locale middleware is enabled
+- model labels/help text are prepared with `gettext_lazy`
+- supported backend languages are `en` and `id`
+- project translation files can be stored under `be/locale/`
 
-Contoh minimal PostgreSQL:
+Backend database support:
+
+- SQLite by default
+- PostgreSQL when `USE_POSTGRES=True`
+
+Minimal PostgreSQL example:
 
 ```env
 USE_POSTGRES=True
@@ -170,34 +187,32 @@ DB_HOST=localhost
 DB_PORT=5432
 ```
 
-Public key SSO sebaiknya diletakkan di:
+The SSO public key is best stored at:
 
 ```text
 be/authentication/keys/public.pem
 ```
 
-atau di path lain dan diarahkan lewat `SSO_PUBLIC_KEY_PATH`.
+Or at another location referenced through `SSO_PUBLIC_KEY_PATH`.
 
-## Authentication dan RBAC
+## Authentication and RBAC
 
-Arsitektur auth/RBAC aktif saat ini:
+Current auth/RBAC architecture:
 
-- autentikasi diproxy ke SSO Arnatech
-- permission enforcement aktif berbasis granular permission SSO
-- role lokal Django tidak lagi dipakai sebagai dasar akses aktif
+- authentication is proxied to Arnatech SSO
+- active permission enforcement is based on granular SSO permissions
+- legacy Django roles are no longer used as the active access-control source
 
-## Catatan kondisi codebase
+## Codebase Status
 
-Beberapa fitur lama belum aktif penuh dan saat ini dipertahankan sebagai placeholder aman:
+Some older features are still preserved as safe placeholders because their original API dependencies are no longer present in the active repository:
 
-- modul `proyek`
-- modul `kepemilikan`
-- halaman `test-api`
+- `proyek` module
+- `kepemilikan` module
+- `test-api` page
 
-Fitur-fitur itu sebelumnya bergantung pada API client atau backend yang sudah tidak ada di repo aktif.
+## Recommended Next Steps
 
-## Saran lanjutan
-
-- tambahkan test backend yang nyata untuk flow stok dan bagi hasil
-- rapikan konsistensi endpoint frontend/backend
-- implementasi ulang modul proyek/kepemilikan bila memang masih dibutuhkan
+- add real backend tests for stock and profit-distribution flows
+- tighten frontend/backend endpoint consistency
+- rebuild the project/ownership modules only if the business still requires them

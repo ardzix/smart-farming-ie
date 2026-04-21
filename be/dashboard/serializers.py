@@ -3,7 +3,7 @@ from rest_framework import serializers
 from .models import SystemConfig
 
 class SystemConfigSerializer(serializers.ModelSerializer):
-    # [FIX] HAPUS parameter source jika nama sama
+    # No `source` argument is needed when the serializer field matches the model method name
     total_assets = serializers.ReadOnlyField()
     total_asset_value = serializers.ReadOnlyField()
     total_funding = serializers.ReadOnlyField()

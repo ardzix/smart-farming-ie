@@ -2,7 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Auth Endpoints
+    # Auth endpoints
     path('sso/google/', views.google_login_sso, name='sso-google'),
     path('login/', views.login_view, name='login'),
     path('register/', views.register_view, name='register'),
@@ -11,13 +11,13 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('token/refresh/', views.refresh_view, name='token_refresh'),
     
-    # MFA Endpoints
+    # MFA endpoints
     path('mfa/verify/', views.verify_mfa_login_view, name='mfa-verify'),
     path('mfa/status/', views.mfa_status_view, name='mfa-status'),
     path('mfa/set/', views.mfa_setup_view, name='mfa-set'),
     path('mfa/disable/', views.mfa_disable_view, name='mfa-disable'),
     
-    # Passkey Auth Proxy Endpoints
+    # Passkey proxy endpoints
     path('passkeys/', views.passkeys_list, name='passkeys-list'),
     path('passkeys/login/begin/', views.passkeys_login_begin, name='passkeys-login-begin'),
     path('passkeys/login/complete/', views.passkeys_login_complete, name='passkeys-login-complete'),
@@ -26,10 +26,10 @@ urlpatterns = [
     path('passkeys/delete/<str:id>/', views.passkeys_delete, name='passkeys-delete'),
 
     
-    # --- Role Management ---
+    # Legacy role endpoint
     path('roles/', views.role_list, name='role-list'), 
 
-    # User Management (Superadmin)
+    # User management
     path('users/', views.user_list_create, name='user-list-create'),
     path('users/<int:pk>/', views.user_detail, name='user-detail'),
 ]

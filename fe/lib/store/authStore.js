@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { devtools, persist } from "zustand/middleware";
+import { devtools, persist } from 'zustand/middleware';
 import Cookies from 'js-cookie';
 
 const parseUserCookie = (userCookie) => {
@@ -25,12 +25,12 @@ const syncStoreAfterPersistRehydrate = (state, setState) => {
       setState({
         user: parsedUser,
         isAuthenticated: true,
-        access_token: parsedUser?.access || "",
-        refresh_token: parsedUser?.refresh || "",
+        access_token: parsedUser?.access || '',
+        refresh_token: parsedUser?.refresh || '',
       });
       return;
     } catch (e) {
-      console.error("Gagal parsing cookie user", e);
+      console.error('Failed to parse user cookie', e);
       Cookies.remove('user', { path: '/' });
     }
   }
@@ -38,8 +38,8 @@ const syncStoreAfterPersistRehydrate = (state, setState) => {
   if (state?.user) {
     setState({
       isAuthenticated: true,
-      access_token: state.user.access || "",
-      refresh_token: state.user.refresh || "",
+      access_token: state.user.access || '',
+      refresh_token: state.user.refresh || '',
     });
     return;
   }
@@ -47,8 +47,8 @@ const syncStoreAfterPersistRehydrate = (state, setState) => {
   setState({
     user: null,
     isAuthenticated: false,
-    access_token: "",
-    refresh_token: "",
+    access_token: '',
+    refresh_token: '',
   });
 };
 
@@ -58,77 +58,84 @@ const useAuthStore = create(
       (set, get) => ({
         user: null,
         isAuthenticated: false,
-        access_token: "",
-        refresh_token: "",
-    
-        // Action Login
+        access_token: '',
+        refresh_token: '',
+
+        // Login action
         login: (userData) => {
-          set({ user: userData, isAuthenticated: true, access_token: userData.access, refresh_token: userData.refresh });
+          set({
+            user: userData,
+            isAuthenticated: true,
+            access_token: userData.access,
+            refresh_token: userData.refresh,
+          });
         },
-    
-        // Action Logout
+
+        // Logout action
         logout: () => {
-          set({ user: null, isAuthenticated: false, access_token: "", refresh_token: "" });
+          set({
+            user: null,
+            isAuthenticated: false,
+            access_token: '',
+            refresh_token: '',
+          });
         },
-    
-        // --- Permission Helpers ---
-        
+
+        // --- Permission helpers ---
         /**
-         * Cek apakah user memiliki permission tertentu.
-         * Contoh: hasPermission('view.asset') → true/false
+         * Check whether the user has a specific permission.
+         * Example: hasPermission('view.asset') -> true/false
          */
         hasPermission: (permission) => {
           const user = get().user;
           if (!user) return false;
-          if (user.is_owner) return true; // Owner punya semua akses
+          if (user.is_owner) return true; // Owners have full access
           return (user.permissions || []).includes(permission);
         },
-    
+
         /**
-         * Cek apakah user memiliki salah satu dari beberapa permissions.
-         * Contoh: hasAnyPermission(['view.asset', 'manage.asset']) → true/false
+         * Check whether the user has at least one permission from a list.
+         * Example: hasAnyPermission(['view.asset', 'manage.asset']) -> true/false
          */
         hasAnyPermission: (permissions) => {
           const user = get().user;
           if (!user) return false;
           if (user.is_owner) return true;
-          return permissions.some(p => (user.permissions || []).includes(p));
+          return permissions.some((p) => (user.permissions || []).includes(p));
         },
-    
+
         /**
-         * Cek apakah user adalah Owner organisasi.
+         * Check whether the user is the organization owner.
          */
         isOwner: () => {
           const user = get().user;
           return user?.is_owner === true;
         },
-    
-        // Initialize Auth (Hydration from Cookies)
+
+        // Initialize auth from cookies
         initializeAuth: () => {
           const userCookie = Cookies.get('user');
-          
+
           if (userCookie) {
             try {
               const parsedUser = parseUserCookie(userCookie);
               set({ user: parsedUser, isAuthenticated: true });
             } catch (e) {
-              console.error("Gagal parsing cookie user", e);
+              console.error('Failed to parse user cookie', e);
               Cookies.remove('user', { path: '/' });
             }
           } else {
             set({ user: null, isAuthenticated: false });
           }
-        }
+        },
       }),
       {
-        name: "auth-storage",
+        name: 'auth-storage',
 
         onRehydrateStorage: () => (state, error) => {
           if (error) return;
 
-          syncStoreAfterPersistRehydrate(state, (partial) =>
-            useAuthStore.setState(partial)
-          );
+          syncStoreAfterPersistRehydrate(state, (partial) => useAuthStore.setState(partial));
         },
       }
     )

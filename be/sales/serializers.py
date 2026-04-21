@@ -2,24 +2,24 @@ from rest_framework import serializers
 from .models import Sale
 
 class SaleSerializer(serializers.ModelSerializer):
-    # Field tambahan untuk tampilan frontend (Read Only)
+    # Additional read-only fields for frontend display
     product_name = serializers.SerializerMethodField()
     product_unit = serializers.SerializerMethodField()
 
     class Meta:
         model = Sale
-        # Sesuaikan field dengan sales/models.py yang Anda kirim
+        # Keep these fields aligned with sales/models.py
         fields = [
             'id', 
-            'product',       # Input ID
-            'product_name',  # Output Nama
-            'product_unit',  # Output Unit
+            'product',       # Input product ID
+            'product_name',  # Output product name
+            'product_unit',  # Output product unit
             'quantity', 
             'price_per_unit', 
             'total_price', 
             'buyer_name', 
             'date', 
-            'proof_image'    # Ada di model Anda
+            'proof_image'    # Stored on the Sale model
         ]
         read_only_fields = ['total_price']
 

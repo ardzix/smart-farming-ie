@@ -1,12 +1,13 @@
 from rest_framework import serializers
+from django.utils.translation import gettext_lazy as _
 from .models import Asset
 
 class AsetSerializer(serializers.ModelSerializer):
-    # [FIX] Gunakan SerializerMethodField agar tidak error 'AttributeError'
+    # Use SerializerMethodField to avoid AttributeError when optional relations are missing
     investors_info = serializers.SerializerMethodField()
     total_investment = serializers.SerializerMethodField()
     
-    # Format gambar agar tampil URL lengkap
+    # Return absolute image URLs when available
     image = serializers.ImageField(max_length=None, use_url=True, allow_null=True, required=False)
 
     class Meta:
@@ -29,10 +30,10 @@ class AsetSerializer(serializers.ModelSerializer):
         ]
     
     def get_total_investment(self, obj):
-        # [FIX] Hitung manual atau return 0 agar aman
+        # Return a safe fallback when ownership data is unavailable
         try:
-            # Jika nanti ada model Ownership, hitung di sini. 
-            # Untuk sekarang return 0 atau value aset.
+            # If an Ownership model is reintroduced, calculate the total here. 
+            # For now, return a safe asset value fallback.
             return getattr(obj, 'value', 0)
         except Exception:
             return 0
@@ -42,7 +43,7 @@ class AsetSerializer(serializers.ModelSerializer):
         Mengambil info investor dari tabel Ownership (Apps lain).
         """
         try:
-            # Gunakan getattr untuk menghindari crash jika relation belum ada
+            # Guard against missing relations so the serializer stays resilient
             if not hasattr(obj, 'ownerships'):
                 return []
                 
@@ -76,5 +77,5 @@ class AsetCreateUpdateSerializer(serializers.ModelSerializer):
     
     def validate_landowner_share_percentage(self, value):
         if value < 0 or value > 100:
-            raise serializers.ValidationError("Persentase harus antara 0-100")
+            raise serializers.ValidationError(_("Percentage must be between 0 and 100"))
         return value

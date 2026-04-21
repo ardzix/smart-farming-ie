@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 @api_view(['GET'])
 @permission_classes([HasSSOPermission('asset')])
 def list_aset(request):
-    # Menggunakan select_related/prefetch_related jika nanti ada relasi foreign key untuk performa
+    # Keep this query simple; add select_related/prefetch_related if richer relations are introduced later
     assets = Asset.objects.all().order_by('-created_at')
     serializer = AsetSerializer(assets, many=True, context={'request': request})
     return Response(serializer.data)
@@ -22,7 +22,7 @@ def tambah_aset(request):
     serializer = AsetCreateUpdateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         instance = serializer.save()
-        # Return data menggunakan serializer standar agar format konsisten dengan GET
+        # Return the standard read serializer so POST responses match GET payloads
         read_serializer = AsetSerializer(instance, context={'request': request})
         return Response(read_serializer.data, status=status.HTTP_201_CREATED)
     

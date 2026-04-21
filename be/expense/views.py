@@ -9,13 +9,13 @@ from authentication.permissions import HasSSOPermission
 
 @api_view(['GET', 'POST'])
 @permission_classes([HasSSOPermission('expense')])
-@parser_classes([MultiPartParser, FormParser]) # Tambahkan ini agar bisa upload gambar
+@parser_classes([MultiPartParser, FormParser]) # Enable image uploads
 def list_expense(request):
     if request.method == 'GET':
-        # 1. Query Dasar (Tanpa select_related ke project/funding yg sudah dihapus)
+        # 1. Base query (without removed project/funding relations)
         queryset = Expense.objects.all().order_by('-date')
         
-        # 2. Search Logic
+        # 2. Search logic
         search = request.query_params.get('search')
         if search:
             queryset = queryset.filter(
@@ -23,7 +23,7 @@ def list_expense(request):
                 Q(title__icontains=search)
             )
         
-        # 3. Filter Category
+        # 3. Category filter
         category = request.query_params.get('category')
         if category and category != 'all':
             queryset = queryset.filter(category=category)
@@ -35,7 +35,7 @@ def list_expense(request):
         serializer = ExpenseCreateUpdateSerializer(data=request.data)
         if serializer.is_valid():
             expense = serializer.save()
-            # Gunakan context={'request': request} agar URL gambar lengkap (http://...)
+            # Pass request context so image URLs are returned as absolute URLs
             return_data = ExpenseDetailSerializer(expense, context={'request': request}).data
             return Response(return_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -53,8 +53,8 @@ def expense_detail(request, pk):
         serializer = ExpenseDetailSerializer(expense, context={'request': request})
         return Response(serializer.data)
 
-    # Cek Permission untuk Edit/Delete (Hanya Admin/Operator)
-    # Investor/Viewer hanya Read-Only (sudah dihandle permission_classes, tapi double check role jika perlu)
+    # Edit/delete is already enforced by permission_classes
+    # Read-only roles are already restricted above; keep this note for future maintainers
     
     if request.method == 'PUT':
         serializer = ExpenseCreateUpdateSerializer(expense, data=request.data, partial=True)

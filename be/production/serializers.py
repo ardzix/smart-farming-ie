@@ -43,14 +43,14 @@ class ProductionSerializer(serializers.ModelSerializer):
 
 
 # ==========================================
-# SERIALIZER BARU: STOCK ADJUSTMENT
+# STOCK ADJUSTMENT SERIALIZER
 # ==========================================
 class StockAdjustmentSerializer(serializers.ModelSerializer):
     product_details = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     proof_image = serializers.ImageField(max_length=None, use_url=True, allow_null=True, required=False)
     
-    # Tambahan untuk display text yang lebih user-friendly
+    # Additional display fields for the frontend
     adjustment_type_display = serializers.CharField(source='get_adjustment_type_display', read_only=True)
     reason_display = serializers.CharField(source='get_reason_display', read_only=True)
 

@@ -8,15 +8,15 @@ from .serializers import SiteSettingSerializer
 @api_view(['GET', 'POST'])
 @permission_classes([HasSSOPermission('site_settings')])
 def settings_view(request):
-    # Selalu ambil objek pertama (ID=1), jika tidak ada buat baru
+    # Always work with the singleton row (ID=1); create it if missing
     setting_obj, created = SiteSetting.objects.get_or_create(pk=1)
 
-    # GET: Tampilkan Data
+    # GET: return the current settings
     if request.method == 'GET':
         serializer = SiteSettingSerializer(setting_obj)
         return Response(serializer.data)
 
-    # POST: Update Data (Hanya Superadmin)
+    # POST: update the settings payload
     elif request.method == 'POST':
         serializer = SiteSettingSerializer(setting_obj, data=request.data, partial=True)
         if serializer.is_valid():

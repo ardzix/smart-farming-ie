@@ -13,7 +13,7 @@ from .serializers import RegisterSerializer, UserSerializer
 from django.conf import settings
 from .permissions import HasSSOPermission
 
-# --- Helper Functions ---
+# --- Helper functions ---
 def set_auth_cookies(response, refresh_token):
     is_production = not settings.DEBUG
     access_token = refresh_token.access_token
@@ -48,9 +48,9 @@ def set_user_cookie(response, user_data):
     )
     return response
 
-# --- SSO JWT Decoder ---
+# --- SSO JWT decoder ---
 
-# Load RSA Public Key dari file
+# Load the RSA public key from disk
 _SSO_PUBLIC_KEY_PATH = os.getenv(
     'SSO_PUBLIC_KEY_PATH',
     os.path.join(os.path.dirname(__file__), 'keys', 'public.pem')
@@ -60,7 +60,7 @@ try:
         SSO_PUBLIC_KEY = f.read()
 except FileNotFoundError:
     SSO_PUBLIC_KEY = None
-    print("[WARNING] SSO public.pem tidak ditemukan. JWT decode akan gagal.")
+    print("[WARNING] SSO public.pem not found. JWT decoding will fail.")
 
 
 def decode_sso_jwt(sso_token, refresh_token):
@@ -74,7 +74,7 @@ def decode_sso_jwt(sso_token, refresh_token):
     
     result = {}
     
-    # Strategi 1: Verified decode dengan public key
+    # Strategy 1: verified decode with the public key
     if SSO_PUBLIC_KEY:
         try:
             payload = pyjwt.decode(
@@ -134,7 +134,7 @@ def extract_primary_role_name(profile=None, sso_claims=None):
 
 
 def build_user_data(user, role_name=None, sso_claims=None):
-    """Buat dict user_data lengkap dengan SSO claims."""
+    """Build the `user_data` payload enriched with SSO claims."""
     data = {
         'id': user.id,
         'username': user.username,
@@ -160,12 +160,12 @@ def build_user_data(user, role_name=None, sso_claims=None):
     return data
 
 
-# --- Auth Views ---
+# --- Auth views ---
 
 def sync_user_from_sso_profile(profile, email):
     username = profile.get('username') or email.split('@')[0]
 
-    # Synchronize User
+    # Synchronize the local user record
     user, created = CustomUser.objects.get_or_create(username=username, defaults={'email': email})
     if not created and user.email != email:
         user.email = email
@@ -183,7 +183,7 @@ def google_login_sso(request):
     if not google_token:
         return Response({'error': 'Google token is required'}, status=status.HTTP_400_BAD_REQUEST)
     
-    # 1. Exchange Google Token for SSO Token
+    # 1. Exchange the Google token for an SSO token
     sso_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/google-login/"
     try:
         sso_resp = requests.post(sso_url, json={'token': google_token})
@@ -192,7 +192,7 @@ def google_login_sso(request):
         
         sso_data = sso_resp.json()
         
-        # Cek secara eksplisit apakah MFA memang required (true)
+        # Explicitly check whether MFA is required
         if sso_data.get('mfa_required') is True:
             return Response({
                 'require_mfa': True,
@@ -202,16 +202,16 @@ def google_login_sso(request):
                 'message': sso_data.get('message', 'MFA verification required')
             }, status=status.HTTP_200_OK)
             
-        # Prioritaskan 'access' atau 'access_token' untuk login normal
+        # Prefer 'access' or 'access_token' for the normal login flow
         sso_jwt = sso_data.get('access') or sso_data.get('access_token') or sso_data.get('token')
         refresh_jwt = sso_data.get('refresh') or sso_data.get('refresh_token')
         if not sso_jwt:
             return Response({'error': 'No SSO token returned', 'sso_response': sso_data}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # 2. Decode SSO JWT untuk ekstrak roles & permissions
+        # 2. Decode the SSO JWT to extract roles and permissions
         sso_claims = decode_sso_jwt(sso_jwt, refresh_jwt)
         
-        # 3. Get User Profile from SSO
+        # 3. Fetch the user profile from SSO
         me_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/me/"
         headers = {'Authorization': f'Bearer {sso_jwt}'}
         me_resp = requests.get(me_url, headers=headers)
@@ -227,11 +227,11 @@ def google_login_sso(request):
         email = profile.get('email', '')
         user = sync_user_from_sso_profile(profile, email)
         
-        # 4. Generate Local Session (JWT)
+        # 4. Generate the local session JWT
         refresh = RefreshToken.for_user(user)
         user_data = build_user_data(user, extract_primary_role_name(profile, sso_claims), sso_claims)
         
-        # Simpan claim ke Django Session (diperlukan untuk HasSSOPermission)
+        # Store SSO claims in the Django session for HasSSOPermission
         request.session['sso_roles'] = sso_claims.get('roles', [])
         request.session['sso_permissions'] = sso_claims.get('permissions', [])
         request.session['sso_is_owner'] = sso_claims.get('is_owner', False)
@@ -264,7 +264,7 @@ def login_view(request):
             
         sso_data = sso_resp.json()
         
-        # Cek secara eksplisit apakah MFA memang required (true)
+        # Explicitly check whether MFA is required
         if sso_data.get('mfa_required') is True:
             return Response({
                 'require_mfa': True,
@@ -274,16 +274,16 @@ def login_view(request):
                 'message': sso_data.get('message', 'MFA verification required')
             }, status=status.HTTP_200_OK)
             
-        # Prioritaskan 'access' atau 'access_token' untuk login normal
+        # Prefer 'access' or 'access_token' for the normal login flow
         sso_access = sso_data.get('access') or sso_data.get('access_token') or sso_data.get('token')
         sso_refresh = sso_data.get('refresh') or sso_data.get('refresh_token')
         if not sso_access:
             return Response({'error': 'No SSO access token returned'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Decode SSO JWT untuk ekstrak roles & permissions
+        # Decode the SSO JWT to extract roles and permissions
         sso_claims = decode_sso_jwt(sso_access, sso_refresh)
         
-        # Get User Profile
+        # Fetch the user profile
         me_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/me/"
         headers = {'Authorization': f'Bearer {sso_access}'}
         me_resp = requests.get(me_url, headers=headers)
@@ -295,7 +295,7 @@ def login_view(request):
             refresh = RefreshToken.for_user(user)
             user_data = build_user_data(user, extract_primary_role_name(profile, sso_claims), sso_claims)
             
-            # Simpan claim ke Django Session
+            # Store SSO claims in the Django session
             request.session['sso_roles'] = sso_claims.get('roles', [])
             request.session['sso_permissions'] = sso_claims.get('permissions', [])
             request.session['sso_is_owner'] = sso_claims.get('is_owner', False)
@@ -329,7 +329,7 @@ def register_view(request):
         
     sso_register_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/register/"
     try:
-        # SSO Arnatech register membutuhkan email dan password
+        # Arnatech SSO registration requires an email and password
         payload = {
             'email': email,
             'password': password,
@@ -339,12 +339,12 @@ def register_view(request):
         if sso_resp.status_code not in [200, 201]:
             return Response({'error': 'Registration failed at SSO', 'details': sso_resp.text}, status=status.HTTP_400_BAD_REQUEST)
             
-        # SSO Arnatech mengirim OTP ke email pengguna setelah register berhasil.
-        # User HARUS verifikasi email sebelum bisa login.
+        # Arnatech SSO sends an OTP email after successful registration.
+        # The user must verify the email before being allowed to log in.
         return Response({
             'require_verification': True,
             'email': email,
-            'message': 'Pendaftaran berhasil! Silakan cek email Anda untuk kode OTP verifikasi.',
+            'message': 'Registration succeeded. Check your email for the verification OTP.',
         }, status=status.HTTP_201_CREATED)
 
     except requests.RequestException as e:
@@ -354,7 +354,7 @@ def register_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verify_email_view(request):
-    """Proxy ke SSO Arnatech untuk verifikasi email via OTP."""
+    """Proxy the email verification OTP request to Arnatech SSO."""
     email = request.data.get('email')
     otp = request.data.get('otp')
     
@@ -372,12 +372,12 @@ def verify_email_view(request):
             except Exception:
                 pass
             return Response(
-                {'error': 'Verifikasi gagal', 'details': error_detail}, 
+                {'error': 'Verification failed', 'details': error_detail}, 
                 status=sso_resp.status_code
             )
         
         return Response({
-            'message': 'Email berhasil diverifikasi! Silakan login dengan akun Anda.',
+            'message': 'Email verified successfully. You can now sign in.',
             'verified': True,
         })
         
@@ -388,7 +388,7 @@ def verify_email_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resend_email_otp_view(request):
-    """Proxy ke SSO Arnatech untuk mengirim ulang OTP verifikasi email."""
+    """Proxy the resend-email-verification-OTP request to Arnatech SSO."""
     email = request.data.get('email')
     
     if not email:
@@ -405,11 +405,11 @@ def resend_email_otp_view(request):
             except Exception:
                 pass
             return Response(
-                {'error': 'Gagal mengirim ulang OTP', 'details': error_detail}, 
+                {'error': 'Failed to resend OTP', 'details': error_detail}, 
                 status=sso_resp.status_code
             )
         
-        return Response({'message': 'Kode OTP baru telah dikirim ke email Anda.'})
+        return Response({'message': 'A new OTP has been sent to your email.'})
         
     except requests.RequestException as e:
         return Response({'error': 'SSO Integration Error', 'details': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -459,30 +459,30 @@ def refresh_view(request):
     except (TokenError, CustomUser.DoesNotExist):
         return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
 
-# --- SSO Token Header Helper ---
+# --- SSO token header helper ---
 def get_sso_auth_headers(request):
     sso_token = request.session.get('sso_access_token')
     if not sso_token:
-        # Peringatan: jika token tidak ada, pengguna harus login ulang 
-        # (ini terjadi jika session Django terhapus atau token exp)
+        # If the token is missing, the user must sign in again 
+        # (this happens when the Django session is cleared or the token expires)
         return None
     return {'Authorization': f'Bearer {sso_token}'}
 
-# --- MFA Proxy Views ---
+# --- MFA proxy views ---
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verify_mfa_login_view(request):
     """
-    Verifikasi kode MFA (OTP). 
-    Mendukung dua konteks:
-    1. Login: Perlu 'token' (pre-auth) + 'mfa_token'.
-    2. Setup/Aktivasi: Perlu 'mfa_token' + user harus sudah IsAuthenticated.
+    Verify the MFA OTP code.
+    Supports two contexts:
+    1. Login: requires 'token' (pre-auth) + 'mfa_token'.
+    2. Setup/activation: requires 'mfa_token' and an authenticated user.
     """
     token = request.data.get('token') or request.data.get('pre_auth_token')
     mfa_token = request.data.get('mfa_token') or request.data.get('otp')
     email = request.data.get('email')
     
-    # JIka tidak ada token pre-auth, cek apakah ini user yang sudah login (Setup context)
+    # If there is no pre-auth token, check whether this is an already authenticated setup flow
     is_setup_context = not token and request.user.is_authenticated
     
     if not mfa_token:
@@ -493,8 +493,8 @@ def verify_mfa_login_view(request):
         
     sso_mfa_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/mfa/verify/"
     try:
-        # Untuk Setup context, kita gunakan Authorization header
-        # Untuk Login context, kita gunakan body 'token'
+        # For setup flows, use the Authorization header
+        # For login flows, pass the token in the request body
         payload = {'mfa_token': mfa_token}
         headers = {}
         
@@ -502,7 +502,7 @@ def verify_mfa_login_view(request):
             headers = get_sso_auth_headers(request)
             if not headers:
                 return Response({'error': 'SSO session expired. Please re-login.'}, status=status.HTTP_401_UNAUTHORIZED)
-            # Beberapa SSO mungkin mencari 'otp' atau 'mfa_token'
+            # Some SSO implementations expect `otp` while others expect `mfa_token`
             payload = {'mfa_token': mfa_token, 'otp': mfa_token}
         else:
             payload['token'] = token
@@ -518,11 +518,11 @@ def verify_mfa_login_view(request):
                 pass
             return Response({'error': 'MFA Verification failed', 'details': error_detail}, status=status.HTTP_400_BAD_REQUEST)
             
-        # Jika ini hanya Setup (bukan Login), kita cukup kembalikan sukses
+        # If this is setup only, return success without creating a new session
         if is_setup_context:
             return Response({'message': 'MFA successfully activated!', 'verified': True})
 
-        # Alur Login Normal (untuk yang memasukkan token pre-auth)
+        # Standard login flow for requests that include a pre-auth token
         sso_data = sso_resp.json()
         sso_access = sso_data.get('access') or sso_data.get('access_token') or sso_data.get('token')
         sso_refresh = sso_data.get('refresh') or sso_data.get('refresh_token')
@@ -570,7 +570,7 @@ def verify_mfa_login_view(request):
 def mfa_status_view(request):
     headers = get_sso_auth_headers(request)
     if not headers:
-        return Response({'error': 'Sesi dengan SSO kedaluwarsa. Silakan login kembali.'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'The SSO session has expired. Please sign in again.'}, status=status.HTTP_401_UNAUTHORIZED)
         
     mfa_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/mfa/status/"
     try:
@@ -584,14 +584,14 @@ def mfa_status_view(request):
 def mfa_setup_view(request):
     headers = get_sso_auth_headers(request)
     if not headers:
-         return Response({'error': 'Sesi dengan SSO kedaluwarsa. Silakan login kembali.'}, status=status.HTTP_401_UNAUTHORIZED)
+         return Response({'error': 'The SSO session has expired. Please sign in again.'}, status=status.HTTP_401_UNAUTHORIZED)
          
     mfa_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/mfa/set/"
     try:
-        # request.data berisi payload yang mungkin dibutuhkan (kosong saat generate, mfa_token saat enable)
+        # request.data may include optional payload fields (empty for generate, mfa_token for enable)
         resp = requests.post(mfa_url, headers=headers, json=request.data)
         
-        # Validasi struktur respons agar tidak TypeError saat frontend membacanya.
+        # Validate the response shape so the frontend does not hit a TypeError.
         res_data = resp.text
         try:
             res_data = resp.json()
@@ -610,7 +610,7 @@ def mfa_disable_view(request):
     """
     headers = get_sso_auth_headers(request)
     if not headers:
-         return Response({'error': 'Sesi dengan SSO kedaluwarsa. Silakan login kembali.'}, status=status.HTTP_401_UNAUTHORIZED)
+         return Response({'error': 'The SSO session has expired. Please sign in again.'}, status=status.HTTP_401_UNAUTHORIZED)
          
     password = request.data.get('password')
     mfa_token = request.data.get('otp') or request.data.get('mfa_token') or request.data.get('totp')
@@ -620,7 +620,7 @@ def mfa_disable_view(request):
 
     mfa_url = f"{settings.SSO_ARNATECH_BASE_URL}/api/auth/mfa/disable/"
     try:
-        # SSO Arnatech mencari 'password' dan 'totp'
+        # Arnatech SSO expects `password` and `totp` keys
         payload = {}
         if password: payload['password'] = password
         if mfa_token: payload['totp'] = mfa_token
@@ -742,7 +742,7 @@ def passkeys_delete(request, id):
 def role_list(request):
     return Response([])
 
-# --- User Management ---
+# --- User management ---
 @api_view(['GET', 'POST'])
 @permission_classes([HasSSOPermission('users')])
 def user_list_create(request):

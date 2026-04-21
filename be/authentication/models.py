@@ -3,9 +3,10 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 
 class AppPermission(models.Model):
-    code = models.CharField(max_length=100, unique=True, help_text="Kode unik permission")
+    code = models.CharField(max_length=100, unique=True, help_text=_("Unique permission code"))
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
 
@@ -27,7 +28,7 @@ class CustomUser(AbstractUser):
         null=True, 
         blank=True, 
         related_name='users',
-        help_text="Role/Jabatan user ini."
+        help_text=_("Legacy local role assigned to this user.")
     )
 
     groups = models.ManyToManyField(

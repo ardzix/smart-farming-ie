@@ -4,17 +4,19 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuthStore from '@/lib/store/authStore';
 import { Spin } from 'antd';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, user, initializeAuth } = useAuthStore();
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
+  const { t } = useI18n();
 
   useEffect(() => {
-    // 1. Load data user dari Cookie saat pertama kali buka/refresh
+    // 1. Load the user from cookies on first load/refresh
     initializeAuth();
     
-    // Beri waktu 100ms agar state store terisi sebelum memutuskan redirect
+    // Give the store 100ms to hydrate before deciding on redirects
     const timer = setTimeout(() => {
       setIsChecking(false);
     }, 100);
@@ -23,7 +25,7 @@ const ProtectedRoute = ({ children }) => {
   }, [initializeAuth]);
 
   useEffect(() => {
-    // 2. Logika Redirect hanya jalan setelah checking selesai
+    // 2. Redirect logic should only run after the initial check finishes
     if (!isChecking) {
       if (!isAuthenticated || !user) {
         router.push('/login');
@@ -31,14 +33,14 @@ const ProtectedRoute = ({ children }) => {
     }
   }, [isAuthenticated, user, router, isChecking]);
 
-  // 3. Tampilkan Loading Bersih (Tanpa Warning Antd)
+  // 3. Show a clean loading state without Ant Design warnings
   if (isChecking || (!isAuthenticated && !user)) {
     return (
       <div className="flex justify-center items-center h-screen w-full bg-white">
         <div className="flex flex-col items-center gap-4">
-          {/* Hapus prop 'tip' agar tidak warning */}
+          {/* Avoid the deprecated 'tip' prop warning */}
           <Spin size="large" /> 
-          <span className="text-gray-500 font-medium mt-4">Memuat data...</span>
+          <span className="text-gray-500 font-medium mt-4">{t('common.loading')}</span>
         </div>
       </div>
     );
