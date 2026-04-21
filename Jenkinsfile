@@ -4,6 +4,7 @@ pipeline {
     environment {
         DEPLOY = 'true'
         DOCKER_IMAGE_REPO = 'arnatechid/smart-farming-be'
+        DEPLOY_IMAGE_REPO = 'arnatechid/smart-farming-be'
         DOCKER_REGISTRY_CREDENTIALS = 'ard-dockerhub'
         BACKEND_ENV_CREDENTIALS = 'smart-farming-be-env'
         SSH_CREDENTIALS = 'stag-arnatech-sa-01'
@@ -37,15 +38,37 @@ pipeline {
             }
         }
 
+        stage('Validate Environment') {
+            steps {
+                script {
+                    def dockerRepo = env.DOCKER_IMAGE_REPO?.trim()
+                    def deployRepo = (env.DEPLOY_IMAGE_REPO?.trim() ?: dockerRepo)
+
+                    if (!dockerRepo || !dockerRepo.contains('/') || dockerRepo in ['true', 'false']) {
+                        error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}'. Expected format like 'namespace/repo'.")
+                    }
+                    if (!deployRepo || !deployRepo.contains('/') || deployRepo in ['true', 'false']) {
+                        error("Invalid DEPLOY_IMAGE_REPO='${env.DEPLOY_IMAGE_REPO}'. Expected format like 'namespace/repo'.")
+                    }
+
+                    env.DOCKER_IMAGE_REPO = dockerRepo
+                    env.DEPLOY_IMAGE_REPO = deployRepo
+                    echo "Validated DOCKER_IMAGE_REPO=${env.DOCKER_IMAGE_REPO}"
+                    echo "Validated DEPLOY_IMAGE_REPO=${env.DEPLOY_IMAGE_REPO}"
+                }
+            }
+        }
+
         stage('Build & Push Docker Image') {
             steps {
                 script {
-                    if (!env.DOCKER_IMAGE_REPO?.trim() || !env.DOCKER_IMAGE_REPO.contains('/')) {
+                    def imageRepo = env.DOCKER_IMAGE_REPO?.trim()
+                    if (!imageRepo || !imageRepo.contains('/')) {
                         error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}'. Expected format like 'namespace/repo'.")
                     }
                     def imageTag = env.BUILD_NUMBER ?: 'latest'
-                    def buildImage = "${env.DOCKER_IMAGE_REPO}:${imageTag}"
-                    echo "Using image repo: ${env.DOCKER_IMAGE_REPO}"
+                    def buildImage = "${imageRepo}:${imageTag}"
+                    echo "Using image repo: ${imageRepo}"
                     echo "Using build image: ${buildImage}"
 
                     withCredentials([
@@ -95,8 +118,8 @@ pipeline {
                                       --platform linux/amd64,linux/arm64 \
                                       --push \
                                       --file be/Dockerfile \
-                                      --tag "${DOCKER_IMAGE_REPO}:${imageTag}" \
-                                      --tag "${DOCKER_IMAGE_REPO}:latest" .
+                                      --tag "${imageRepo}:${imageTag}" \
+                                      --tag "${imageRepo}:latest" .
                                 """
                             )
 
@@ -105,18 +128,18 @@ pipeline {
                                 sh """
                                     set -e
                                     echo "\$DOCKERHUB_TOKEN" | docker login -u "\$DOCKERHUB_USER" --password-stdin
-                                    docker build -f be/Dockerfile -t "${DOCKER_IMAGE_REPO}:${imageTag}" -t "${DOCKER_IMAGE_REPO}:latest" .
-                                    docker push "${DOCKER_IMAGE_REPO}:${imageTag}"
-                                    docker push "${DOCKER_IMAGE_REPO}:latest"
+                                    docker build -f be/Dockerfile -t "${imageRepo}:${imageTag}" -t "${imageRepo}:latest" .
+                                    docker push "${imageRepo}:${imageTag}"
+                                    docker push "${imageRepo}:latest"
                                 """
                             }
                         } else {
                             sh """
                                 set -e
                                 echo "\$DOCKERHUB_TOKEN" | docker login -u "\$DOCKERHUB_USER" --password-stdin
-                                docker build -f be/Dockerfile -t "${DOCKER_IMAGE_REPO}:${imageTag}" -t "${DOCKER_IMAGE_REPO}:latest" .
-                                docker push "${DOCKER_IMAGE_REPO}:${imageTag}"
-                                docker push "${DOCKER_IMAGE_REPO}:latest"
+                                docker build -f be/Dockerfile -t "${imageRepo}:${imageTag}" -t "${imageRepo}:latest" .
+                                docker push "${imageRepo}:${imageTag}"
+                                docker push "${imageRepo}:latest"
                             """
                         }
                     }
@@ -130,11 +153,13 @@ pipeline {
             }
             steps {
                 script {
+                    def deployRepo = env.DEPLOY_IMAGE_REPO?.trim()
                     def deployTag = env.BUILD_NUMBER ?: 'latest'
-                    def resolvedImage = "arnatechid/smart-farming-be:${deployTag}"
-                    if (!resolvedImage.contains('/') || !resolvedImage.contains(':') || resolvedImage.startsWith('true')) {
+                    def resolvedImage = "${deployRepo}:${deployTag}"
+                    if (!resolvedImage.contains('/') || !resolvedImage.contains(':') || resolvedImage.startsWith('true') || resolvedImage.contains(':true')) {
                         error("Resolved deploy image is invalid: '${resolvedImage}'")
                     }
+                    env.RESOLVED_IMAGE = resolvedImage
                     echo "Deploy stage image: ${resolvedImage}"
                 }
                 withCredentials([
@@ -152,7 +177,7 @@ pipeline {
 
                         echo "[INFO] Deploying service with rolling update..."
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} \
-                          'bash -se' -- "arnatechid/smart-farming-be:${BUILD_NUMBER:-latest}" "${STACK_NAME}" "${REPLICAS}" "${NETWORK_NAME}" "${VPS_APP_DIR}" <<'EOSSH'
+                          'bash -se' -- "${RESOLVED_IMAGE}" "${STACK_NAME}" "${REPLICAS}" "${NETWORK_NAME}" "${VPS_APP_DIR}" <<'EOSSH'
                             set -eu
 
                             TARGET_IMAGE="$1"
@@ -178,7 +203,7 @@ pipeline {
                                     ;;
                             esac
                             case "${TARGET_IMAGE}" in
-                                arnatechid/smart-farming-be:*)
+                                */*:*)
                                     ;;
                                 *)
                                     echo "[ERROR] Unexpected TARGET_IMAGE value: ${TARGET_IMAGE}" >&2
