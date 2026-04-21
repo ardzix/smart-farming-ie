@@ -44,9 +44,9 @@ pipeline {
                         error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}'. Expected format like 'namespace/repo'.")
                     }
                     def imageTag = env.BUILD_NUMBER ?: 'latest'
-                    env.DEPLOY_IMAGE = "${env.DOCKER_IMAGE_REPO}:${imageTag}"
+                    def buildImage = "${env.DOCKER_IMAGE_REPO}:${imageTag}"
                     echo "Using image repo: ${env.DOCKER_IMAGE_REPO}"
-                    echo "Using deploy image: ${env.DEPLOY_IMAGE}"
+                    echo "Using build image: ${buildImage}"
 
                     withCredentials([
                         usernamePassword(
@@ -133,11 +133,12 @@ pipeline {
                     if (!env.DOCKER_IMAGE_REPO?.trim() || !env.DOCKER_IMAGE_REPO.contains('/')) {
                         error("Invalid DOCKER_IMAGE_REPO='${env.DOCKER_IMAGE_REPO}' at deploy stage.")
                     }
-                    if (!env.DEPLOY_IMAGE?.trim()) {
-                        def imageTag = env.BUILD_NUMBER ?: 'latest'
-                        env.DEPLOY_IMAGE = "${env.DOCKER_IMAGE_REPO}:${imageTag}"
+                    def deployTag = env.BUILD_NUMBER ?: 'latest'
+                    env.TARGET_IMAGE = "${env.DOCKER_IMAGE_REPO}:${deployTag}"
+                    if (!env.TARGET_IMAGE.contains('/') || !env.TARGET_IMAGE.contains(':') || env.TARGET_IMAGE.startsWith('true')) {
+                        error("Resolved TARGET_IMAGE is invalid: '${env.TARGET_IMAGE}'")
                     }
-                    echo "Deploy stage image: ${env.DEPLOY_IMAGE}"
+                    echo "Deploy stage image: ${env.TARGET_IMAGE}"
                 }
                 withCredentials([
                     sshUserPrivateKey(credentialsId: env.SSH_CREDENTIALS, keyFileVariable: 'SSH_KEY_FILE')
@@ -154,7 +155,7 @@ pipeline {
 
                         echo "[INFO] Deploying service with rolling update..."
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} \
-                          "STACK_NAME='${STACK_NAME}' REPLICAS='${REPLICAS}' NETWORK_NAME='${NETWORK_NAME}' VPS_APP_DIR='${VPS_APP_DIR}' DOCKER_IMAGE_REPO='${DOCKER_IMAGE_REPO}' DEPLOY_IMAGE='${DEPLOY_IMAGE}' bash -se" <<'EOSSH'
+                          "STACK_NAME='${STACK_NAME}' REPLICAS='${REPLICAS}' NETWORK_NAME='${NETWORK_NAME}' VPS_APP_DIR='${VPS_APP_DIR}' TARGET_IMAGE='${TARGET_IMAGE}' bash -se" <<'EOSSH'
                             set -eu
 
                             docker swarm init >/dev/null 2>&1 || true
@@ -163,8 +164,18 @@ pipeline {
                                 docker network create --driver overlay --attachable "${NETWORK_NAME}"
                             fi
 
-                            DEPLOY_IMAGE="${DEPLOY_IMAGE:-${DOCKER_IMAGE_REPO}:latest}"
-                            docker pull "${DEPLOY_IMAGE}"
+                            if [ -z "${TARGET_IMAGE:-}" ]; then
+                                echo "[ERROR] TARGET_IMAGE is empty" >&2
+                                exit 1
+                            fi
+                            case "${TARGET_IMAGE}" in
+                                true|true:*|*:true)
+                                    echo "[ERROR] TARGET_IMAGE resolved to invalid value: ${TARGET_IMAGE}" >&2
+                                    exit 1
+                                    ;;
+                            esac
+
+                            docker pull "${TARGET_IMAGE}"
 
                             if ! docker service inspect "${STACK_NAME}" >/dev/null 2>&1; then
                                 echo "[INFO] Creating service ${STACK_NAME}..."
@@ -192,7 +203,7 @@ pipeline {
                                     --rollback-order start-first \
                                     --rollback-parallelism 1 \
                                     --rollback-delay 5s \
-                                    "${DEPLOY_IMAGE}"
+                                    "${TARGET_IMAGE}"
                             else
                                 echo "[INFO] Updating service ${STACK_NAME}..."
                                 docker service update "${STACK_NAME}" --publish-rm 8000 >/dev/null 2>&1 || true
@@ -201,7 +212,7 @@ pipeline {
                                 docker service update "${STACK_NAME}" \
                                     --with-registry-auth \
                                     --detach true \
-                                    --image "${DEPLOY_IMAGE}" \
+                                    --image "${TARGET_IMAGE}" \
                                     --force \
                                     --env-add DUMMY_ROLLOUT_TS="$(date +%s)" \
                                     --restart-condition any \
