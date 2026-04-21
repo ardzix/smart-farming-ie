@@ -226,7 +226,7 @@ pipeline {
                                 docker service create \
                                     --with-registry-auth \
                                     --name "${STACK_NAME}" \
-                                    --detach true \
+                                    --detach=true \
                                     --replicas "${REPLICAS}" \
                                     --network "${NETWORK_NAME}" \
                                     --mount type=bind,src=${VPS_APP_DIR}/.env,dst=/app/.env,ro=true \
@@ -252,7 +252,7 @@ pipeline {
                                 echo "[INFO] Updating service ${STACK_NAME}..."
                                 docker service update "${STACK_NAME}" \
                                     --with-registry-auth \
-                                    --detach true \
+                                    --detach=true \
                                     --image "${TARGET_IMAGE}" \
                                     --force \
                                     --env-add DUMMY_ROLLOUT_TS="$(date +%s)" \
@@ -274,7 +274,7 @@ pipeline {
                                         echo "[WARN] Primary update command failed. Retrying without network/publish mutation..."
                                         docker service update "${STACK_NAME}" \
                                             --with-registry-auth \
-                                            --detach true \
+                                            --detach=true \
                                             --image "${TARGET_IMAGE}" \
                                             --force \
                                             --env-add DUMMY_ROLLOUT_TS="$(date +%s)" \
